@@ -85,7 +85,7 @@ void DoConfig()
 		pspDebugScreenPrintf("\n");
 		pspDebugScreenPrintf("\n");
 		pspDebugScreenPrintf("  DSONPSP CONFIG PARAM Yoshi\n\n");
-		pspDebugScreenPrintf("  when you done your configuration stuff press START \n\n");
+		pspDebugScreenPrintf("  when you have configured everything, press START \n\n");
 		pspDebugScreenPrintf("  Lang config: 0 = JAP, 1 = ENG, 2 = FRE, 3 = GER,\n");
 		pspDebugScreenPrintf("  4 = ITA, 5 = SPA, 6 = CHI, 7 = RES\n");
 		pspDebugScreenPrintf("\n");
