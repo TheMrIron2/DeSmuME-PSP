@@ -85,7 +85,7 @@ void DoConfig()
 		pspDebugScreenPrintf("\n");
 		pspDebugScreenPrintf("\n");
 		pspDebugScreenPrintf("  DSONPSP CONFIG PARAM Yoshi\n\n");
-		pspDebugScreenPrintf("  when you have configured everything, press START \n\n");
+		pspDebugScreenPrintf("  when you done your configuration stuff press START \n\n");
 		pspDebugScreenPrintf("  Lang config: 0 = JAP, 1 = ENG, 2 = FRE, 3 = GER,\n");
 		pspDebugScreenPrintf("  4 = ITA, 5 = SPA, 6 = CHI, 7 = RES\n");
 		pspDebugScreenPrintf("\n");
@@ -301,10 +301,10 @@ void DSEmuGui(char *path,char *out)
 		pspDebugScreenSetXY(1, 0);
 		pspDebugScreenPrintf("\n");
 		pspDebugScreenPrintf("\n");
-		pspDebugScreenPrintf("  Welcome to %s based on 2007 *DeSmuMe* Core \n\n",VERSION);
-		pspDebugScreenPrintf("  press CROSS to launch your game \n\n");
-		pspDebugScreenPrintf("  press SQUARE to exit :=X \n\n");
-		pspDebugScreenPrintf("  ROM path %s \n\n",tmp);
+		pspDebugScreenPrintf("  Welcome to %s Based on *DeSmuMe*\n\n");
+		pspDebugScreenPrintf("  press CROSS for launch your game \n\n");
+		pspDebugScreenPrintf("  press SQUARE now for exit :=X \n\n");
+		pspDebugScreenPrintf("  Roms path %s \n\n",tmp);
 		DisplayFileList();
 		if(sceCtrlPeekBufferPositive(&pad, 1))
 		{
