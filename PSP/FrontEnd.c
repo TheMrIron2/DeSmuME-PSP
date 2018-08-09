@@ -77,15 +77,15 @@ void DoConfig()
 	pspDebugScreenSetXY(0,0);
 
 	int cnt;
-	for (cnt=0;cnt<100;cnt++)//pspDebugScreenPrintf("\n");
+	for (cnt=0;cnt<100;cnt++)//pspDebugScreenPrintf("\n"); //?
 	while(!done){
 		sceDisplayWaitVblankStart();
 		pspDebugScreenSetTextColor(0xffffffff);
 		pspDebugScreenSetXY(0, 3);
 		pspDebugScreenPrintf("\n");
 		pspDebugScreenPrintf("\n");
-		pspDebugScreenPrintf("  DSONPSP CONFIG PARAM Yoshi\n\n");
-		pspDebugScreenPrintf("  when you done your configuration stuff press START \n\n");
+		pspDebugScreenPrintf("  DSonPSP configuration\n\n");
+		pspDebugScreenPrintf("  When you have finished your configuration, press START \n\n");
 		pspDebugScreenPrintf("  Lang config: 0 = JAP, 1 = ENG, 2 = FRE, 3 = GER,\n");
 		pspDebugScreenPrintf("  4 = ITA, 5 = SPA, 6 = CHI, 7 = RES\n");
 		pspDebugScreenPrintf("\n");
@@ -302,9 +302,9 @@ void DSEmuGui(char *path,char *out)
 		pspDebugScreenPrintf("\n");
 		pspDebugScreenPrintf("\n");
 		pspDebugScreenPrintf("  Welcome to %s Based on *DeSmuMe*\n\n");
-		pspDebugScreenPrintf("  press CROSS for launch your game \n\n");
-		pspDebugScreenPrintf("  press SQUARE now for exit :=X \n\n");
-		pspDebugScreenPrintf("  Roms path %s \n\n",tmp);
+		pspDebugScreenPrintf("  press CROSS to launch your game \n\n");
+		pspDebugScreenPrintf("  press SQUARE now to exit :=X \n\n");
+		pspDebugScreenPrintf("  ROM path %s \n\n",tmp);
 		DisplayFileList();
 		if(sceCtrlPeekBufferPositive(&pad, 1))
 		{
