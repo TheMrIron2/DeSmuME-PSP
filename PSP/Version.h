@@ -1,6 +1,6 @@
 #ifndef VERSION
 #define VERSION
 
-#define VERSION  "DSONPSP V0.6 By Yoshihiro"
+#define VERSION  "DSONPSP v0.8"
 
 #endif
