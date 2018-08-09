@@ -23,7 +23,7 @@
 #include "ctrlssdl.h"
 #ifdef __psp__
 	#include <pspctrl.h>
-    #include "./psp/FrontEnd.h"
+    #include "./PSP/FrontEnd.h"
 #endif
 
 static SDL_Joystick **open_joysticks = NULL;
