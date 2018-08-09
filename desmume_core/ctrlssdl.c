@@ -452,6 +452,7 @@ process_ctrls_events( u16 *keypad,
 	  else
 	  {
 		  mouse.down = TRUE;
+		  //Joystick handling for the touchsceen emulation?
 		  if(vertical){
           if (pad.Ly < 10){
 			--mouse.x;
