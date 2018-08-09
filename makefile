@@ -41,7 +41,7 @@ CC       = psp-gcc
 PSP_FW_VERSION = 500
 PSPSDK = $(shell psp-config --pspsdk-path)
 PSPBIN = $(PSPSDK)/../bin
-CFLAGS += $(shell $(PSPBIN)/sdl-config --cflags) -O3 -G0 -Wall
+CFLAGS += $(shell $(PSPBIN)/sdl-config --cflags) -O3 -G0 -Wall	# todo: more flags for speedup?
 
 INCDIR = $(PSPDEV)/psp/include/SDL/ ./PSP ./desmume_core
 
@@ -55,7 +55,7 @@ LDFLAGS =
 LIBS = -lSDLmain -lSDL -lGL -lGLU -glut -lpspgum -lpspgu -lpspge -lpspaudio -lm  -lpspirkeyb -lpsppower -lpspwlan -lpspvfpu -lpsprtc -lpsphprm
 
 EXTRA_TARGETS = EBOOT.PBP
-PSP_EBOOT_TITLE = DSONPSP V0.6 by Yoshihiro (kayliah Edition)
+PSP_EBOOT_TITLE = DSonPSP v0.8
 
 
 
