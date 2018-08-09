@@ -1,10 +1,10 @@
 # DSonPSP
 
-DSonPSP v0.8 is an effort by TheMrIron2 and z2442 to update the proof of concept DS emulator, DSonPSP.
+DSonPSP v0.8 is an effort by TheMrIron2, z2442 and other PS Homebrew developers to update the proof of concept DS emulator, DSonPSP.
 
 ## Background
 
-DSonPSP was a proof of concept DS emulator for PSP by Yoshihiro. It was based on what is now ancient 2006/2007 Desmume code, and as a result it is very slow and most titles don't work very well. A few versions were released, up to beta v0.7; this repository is based on the last available source code, for 0.6.
+DSonPSP was a proof of concept DS emulator for PSP by Yoshihiro. It was based on what is now ancient 2006/2007 Desmume code, and as a result it is very slow and most titles don't work very well. A few versions were released, up to beta v0.7; this repository is based on the source code available for 0.7, thanks to: https://github.com/BenNottelling/DSonPSP
 
 ## Updating
 
