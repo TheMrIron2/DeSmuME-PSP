@@ -1,3 +1,4 @@
+
 TARGET = DsOnPsp
 OBJS =\
 	./desmume_core/arm_instructions.o \
@@ -37,26 +38,24 @@ OBJS =\
 ASM      = psp-as
 CC       = psp-gcc
 
-PSP_FW_VERSION = 200
+PSP_FW_VERSION = 500
+PSPSDK = $(shell psp-config --pspsdk-path)
+PSPBIN = $(PSPSDK)/../bin
+CFLAGS += $(shell $(PSPBIN)/sdl-config --cflags) -O3 -G0 -Wall
 
-INCDIR = ./SDL/include ./PSP ./desmume_core
-CFLAGS = -O3 -G0 -Wall
+INCDIR = $(PSPDEV)/psp/include/SDL/ ./PSP ./desmume_core
 
-
-CXXFLAGS = $(CFLAGS) -fno-exceptions -fno-rtti 
+CXXFLAGS = $(CFLAGS) -fno-exceptions -fno-rtti
 #psp-as ./desmume_core/matrix_psp_asm.s -o
-ASFLAGS = 
+ASFLAGS =
 #$(ASM) ./desmume_core/matrix.s -o ./desmume_core/matrix.o \
 
-LIBDIR = ./SDL
+LIBDIR = $(PSPDEV)/psp/include/SDL
 LDFLAGS =
-LIBS = -lpsppower -lpsppower -lpspwlan -lSDL -lGL -lGLU -glut -lpspvfpu -lpspgum -lpspgu -lpspge -lpspaudio -lpsprtc -lm
+LIBS = -lSDLmain -lSDL -lGL -lGLU -glut -lpspgum -lpspgu -lpspge -lpspaudio -lm  -lpspirkeyb -lpsppower -lpspwlan -lpspvfpu -lpsprtc -lpsphprm
 
 EXTRA_TARGETS = EBOOT.PBP
 PSP_EBOOT_TITLE = DSONPSP V0.6 by Yoshihiro (kayliah Edition)
-PSP_EBOOT_ICON  = ./icon/icon0.png
-PSP_EBOOT_PIC1 = ./icon/pic1.png
-
 
 
 
