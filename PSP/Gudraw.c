@@ -80,7 +80,7 @@ void GuInit()
   PixelFormat = GU_PSM_5551;
   TexFormat = GU_PSM_5551;
   TexColor = GU_COLOR_5551;
-  TexFilter = GU_LINEAR;
+  TexFilter = GU_NEAREST;
   
    int size;
 
@@ -100,7 +100,7 @@ void GuInit()
   sceGuDepthRange(0xc350, 0x2710);
   sceGuDisable(GU_ALPHA_TEST);
   sceGuBlendFunc(GU_ADD, GU_SRC_ALPHA, GU_ONE_MINUS_SRC_ALPHA, 0, 0);
-  sceGuEnable(GU_BLEND);
+  sceGuEnable(GU_BLEND); // todo: hmm
   sceGuDisable(GU_DEPTH_TEST);
   sceGuEnable(GU_CULL_FACE);
   sceGuDisable(GU_LIGHTING);
@@ -211,4 +211,3 @@ void GuImageDirect(u16* imageA,u16* imageB,int VX,int VY,int Width,int Height, i
   pspVideoSwapBuffers();
   sceDisplayWaitVblankStart();
 }
-
