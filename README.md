@@ -6,7 +6,7 @@ Read below for the background information, credits and instructions.
 
 ## Background
 
-DSonPSP was a proof of concept DS emulator for PSP by Yoshihiro. It was based on what is now ancient 2006/2007 Desmume code, and as a result it is very slow and most titles don't work very well. A few versions were released, up to beta v0.7; this repository is based on the source code available for 0.7, thanks to: https://github.com/BenNottelling/DSonPSP
+DSonPSP was a proof of concept DS emulator for PSP by Yoshihiro. It was based on what is now ancient 2006/2007 Desmume code, and as a result it is very slow and most titles don't work very well. A few versions were released, up to beta v0.7; this repository is based on the last publicly available source code, for 0.6.
 
 ## Programming
 
@@ -18,7 +18,7 @@ Possible solutions:
 
 - Attempt to find last working C build and update DSonPSP for a quick fix
 - Try to use a new C++ version of Desmume, discarding the old C base
-- Try a whole new branch of DS emulator, such as MelonDS; this may be favourable since Desmume still has issues such as the refusal to fix bugs in Pokemon.
+- Try a whole new branch of DS emulator, such as MelonDS; this may be favourable since Desmume still has issues such as the refusal to fix bugs in Pokemon. (MelonDS branch is currently being experimented with)
 
 Microphone support among other peripherals are likely to never get added unless this becomes a project on a larger scale. This is simply focused on improving the base code; we do not have the capacity or interest to add functionality from peripherals like the microphone and instead are looking to improve compatibility and performance. 
 
