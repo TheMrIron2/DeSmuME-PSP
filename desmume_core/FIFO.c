@@ -81,6 +81,7 @@ void IPC_FIFOsend(u8 proc, u32 val)
 
 	if ((cnt_r & (1<<10)))
 		NDS_makeInt(proc^1, 18);
+
 }
 
 u32 IPC_FIFOrecv(u8 proc)
@@ -115,6 +116,7 @@ u32 IPC_FIFOrecv(u8 proc)
 
 	if ((cnt_l & (1<<3)))
 		NDS_makeInt(proc, 19);
+
 	return (val);
 }
 
@@ -136,6 +138,7 @@ void IPC_FIFOcnt(u8 proc, u16 val)
 
 	if ((cnt_l & 0x0004))
 		NDS_makeInt(proc, 18);
+
 }
 
 // ========================================================= GFX FIFO

@@ -592,8 +592,8 @@ static void MMU_IPCSync(u8 proc, u32 val)
 	T1WriteLong(MMU.MMU_MEM[proc][0x40], 0x180, IPCSYNC_local);
 	T1WriteLong(MMU.MMU_MEM[proc^1][0x40], 0x180, IPCSYNC_remote);
 
-	if ((val & 0x2000) && (IPCSYNC_remote & 0x4000))
-		NDS_makeInt(proc^1, 17);
+//	if ((val & 0x2000) && (IPCSYNC_remote & 0x4000))
+//		NDS_makeInt(proc^1, 17);
 }
 
 char txt[80];	

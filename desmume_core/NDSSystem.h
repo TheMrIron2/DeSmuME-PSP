@@ -133,9 +133,11 @@ typedef struct
 	//it was perhaps a mistake to put it here.
 	//it is far less important than the above.
 	//maybe I should move it.
+	
 	s32 idleCycles;
 	s32 runCycleCollector[16];
 	s32 idleFrameCounter;
+    int Homebrew;
 } NDSSystem;
 
 /** /brief A touchscreen calibration point.
