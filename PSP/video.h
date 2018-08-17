@@ -76,6 +76,7 @@ typedef struct
 #define SCR_WIDTH 480
 #define SCR_HEIGHT 272
 
+void fps_init();
 void GuInit();
 void pspVideoShutdown();
 void pspVideoClearScreen();
