@@ -51,10 +51,10 @@ We hope to get there one day!
 
 My name might be on the repository, but I couldn't have done this on my own. I'll list the credits in no particular order:
 
-z2442: Help updating DSonPSP so it compiles on new PSP SDK and additional compilation help
-TheMrIron2: Tweaks
-mrneo240: Help with compiling
-bandithedoge: pic1.png and icon0.png
+- z2442: Help updating DSonPSP so it compiles on new PSP SDK and additional compilation help
+- TheMrIron2: Tweaks
+- mrneo240: Help with compiling
+- bandithedoge: pic1.png and icon0.png
 
 ## Footnote
 
