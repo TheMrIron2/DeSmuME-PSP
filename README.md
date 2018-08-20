@@ -28,6 +28,25 @@ Create a folder (call it whatever you like, but "DSonPSP" works) in /PSP/GAME/, 
 Place the EBOOT.PBP in this folder, and within this folder create another folder called /NDSROM/. Place any legally obtained DS backups into this folder.
 Now you can simply boot DSonPSP from your PSP and the ROMs will show up automatically.
 
+## (Developer Info) Planned Optimisations
+
+DSonPSP is currently woefully optimised, but we have a plan to get full speed! Currently, DSonPSP is software rendered, and only uses the main CPU. Our plan:
+
+- Offload graphics work (DS graphics core emulation) to PSP GPU
+- Parallelize Media Engine and main CPU and offload code to ME (Important!)^
+- Use newer, more compatible and hopefully faster code
+- Add a JIT (just-in-time) core for faster emulation
+
+^ The PSP has two CPUs, not just one. The main one is known to us all, but the Media Engine is actually a second CPU in the PSP. It is functionally identical to the main CPU and even runs at the same clock speed! However it is a bit stripped down (No VPU or FPU) and is more foreign to us. So our plan is to use the ME to emulate the DS's secondary CPU, the ARM7 chip @ 33MHz, and possibly to do audio processing as well. This frees up a massive amount of resources on the main CPU for us to emulate the main ARM9 chip in the DS!
+
+So in conclusion, this is how we'll emulate the DS:
+- Main PSP CPU emulates the main 67MHz ARM9 CPU
+- Media Engine emulates the 33MHz ARM7 CPU (notably responsible for audio, also processes auxilary tasks like input and real time clocks)
+- GPU renders graphics
+- Possibly on 64MB PSPs, small games could be loaded into the memory to improve loading times (Citation needed)
+
+We hope to get there one day!
+
 ## Credits 
 
 My name might be on the repository, but I couldn't have done this on my own. I'll list the credits in no particular order:
