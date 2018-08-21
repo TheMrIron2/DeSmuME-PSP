@@ -37,7 +37,7 @@ DSonPSP is currently woefully optimised, but we have a plan to get full speed! C
 - Use newer, more compatible and hopefully faster code
 - Add a JIT (just-in-time) core for faster emulation
 
-^ The PSP has two CPUs, not just one. The main one is known to us all, but the Media Engine is actually a second CPU in the PSP. It is functionally identical to the main CPU and even runs at the same clock speed! However it is a bit stripped down (No VPU or FPU) and is more foreign to us. So our plan is to use the ME to emulate the DS's secondary CPU, the ARM7 chip @ 33MHz, and possibly to do audio processing as well. This frees up a massive amount of resources on the main CPU for us to emulate the main ARM9 chip in the DS!
+^ The PSP has two CPUs, not just one. The main one is known to us all, but the Media Engine is actually a second CPU in the PSP. It is functionally identical to the main CPU and even runs at the same clock speed! However it is a bit stripped down (No VPU or FPU) and is more foreign to us. So our plan is to use the ME to emulate the DS's secondary CPU, the 33MHz ARM7 chip. This frees up a massive amount of resources on the main CPU for us to emulate the main ARM9 chip in the DS!
 
 So in conclusion, this is how we'll emulate the DS:
 - Main PSP CPU emulates the main 67MHz ARM9 CPU
@@ -55,6 +55,7 @@ My name might be on the repository, but I couldn't have done this on my own. I'l
 - TheMrIron2: Tweaks
 - mrneo240: Help with compiling
 - bandithedoge: pic1.png and icon0.png
+- Exophase: ARM7 code and hardware assistance
 
 ## Footnote
 
