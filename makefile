@@ -41,7 +41,7 @@ CC       = psp-gcc
 PSP_FW_VERSION = 500
 PSPSDK = $(shell psp-config --pspsdk-path)
 PSPBIN = $(PSPSDK)/../bin
-CFLAGS += $(shell $(PSPBIN)/sdl-config --cflags) -O3 -G0 -ffast-math -Wall -fsingle-precision-constant
+CFLAGS += $(shell $(PSPBIN)/sdl-config --cflags) -O3 -G0 -ffast-math -Wall
 
 INCDIR = $(PSPDEV)/psp/include/SDL/ ./PSP ./desmume_core
 
