@@ -56,8 +56,8 @@ LIBS = -lSDLmain -lSDL -lGL -lGLU -glut -lpspgum -lpspgu -lpspge -lpspaudio -lm 
 
 EXTRA_TARGETS = EBOOT.PBP
 PSP_EBOOT_TITLE = DSonPSP v0.8
-PSP_EBOOT_ICON= ./icon/ICON0.png
-PSP_EBOOT_PIC1= ./icon/PIC1.png
+PSP_EBOOT_ICON= ./icon/ICON0.PNG
+PSP_EBOOT_PIC1= ./icon/PIC1.PNG
 
 
 PSPSDK=$(shell psp-config --pspsdk-path)
