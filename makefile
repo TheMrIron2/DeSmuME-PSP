@@ -41,7 +41,7 @@ CC       = psp-gcc
 PSP_FW_VERSION = 500
 PSPSDK = $(shell psp-config --pspsdk-path)
 PSPBIN = $(PSPSDK)/../bin
-CFLAGS += $(shell $(PSPBIN)/sdl-config --cflags) -O3 -G0 -ffast-math -Wall
+CFLAGS += -O3 -G0 -ffast-math -Wall
 
 INCDIR = $(PSPDEV)/psp/include/SDL/ ./PSP ./desmume_core
 
@@ -52,7 +52,7 @@ ASFLAGS =
 
 LIBDIR = $(PSPDEV)/psp/include/SDL
 LDFLAGS =
-LIBS = -lSDLmain -lSDL -lGL -lGLU -glut -lpspgum -lpspgu -lpspge -lpspaudio -lm  -lpspirkeyb -lpsppower -lpspwlan -lpspvfpu -lpsprtc -lpsphprm
+LIBS = -lSDL -lGL -lGLU -glut -lpspgum -lpspgu -lpspge -lpspaudio -lm  -lpspirkeyb -lpsppower -lpspwlan -lpspvfpu -lpsprtc -lpsphprm
 
 EXTRA_TARGETS = EBOOT.PBP
 PSP_EBOOT_TITLE = DSonPSP v0.8
