@@ -26,6 +26,7 @@ OBJS =\
 	./desmume_core/SPU.o \
 	./desmume_core/thumb_instructions.o \
 	./desmume_core/wifi.o \
+	./PSP/callbacks.o \
 	./PSP/Gudraw.o \
 	./PSP/vram.o \
 	./PSP/FrontEnd.o \
