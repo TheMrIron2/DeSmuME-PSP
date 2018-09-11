@@ -43,4 +43,14 @@
 PSP_MODULE_INFO("DSOnPSP", 0, 1, 1);
 PSP_MAIN_THREAD_ATTR(PSP_THREAD_ATTR_VFPU | PSP_THREAD_ATTR_USER);
 
+int main()
+{
+  
+ scePowerSetClockFrequency(333, 333, 166);
+  
+ setupCallbacks();
+}
+
+
+
 
