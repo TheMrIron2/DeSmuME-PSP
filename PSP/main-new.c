@@ -39,6 +39,8 @@
 #include <GL/gl.h>
 #include <GL/glu.h>
 #include "callbacks.h"
+#include "../intraFont/libraries/graphics.h"
+#include "../intraFont/intraFont.h"
 
 PSP_MODULE_INFO("DSOnPSP", 0, 1, 1);
 PSP_MAIN_THREAD_ATTR(PSP_THREAD_ATTR_VFPU | PSP_THREAD_ATTR_USER);
@@ -47,8 +49,31 @@ int main()
 {
   
  scePowerSetClockFrequency(333, 333, 166);
-  
+ pspDebugScreenInit();
  setupCallbacks();
+  
+  enum colors {
+    RED =  0xFF0000FF,
+    GREEN =  0xFF00FF00,
+    BLUE =  0xFFFF0000,
+    WHITE =  0xFFFFFFFF,
+    LITEGRAY = 0xFFBFBFBF,
+    GRAY =  0xFF7F7F7F,
+    DARKGRAY = 0xFF3F3F3F,    
+    BLACK = 0xFF000000,
+  };
+  
+   intraFontInit();
+  
+  intraFont* ltn[16];                                  
+    intraFontLoad("flash0:/font/ltn4.pgf",0);      
+    intraFontSetStyle(ltn4,1.0f,WHITE,DARKGRAY,0.f,0);
+   initGraphics();
+   clearScreen(GRAY);
+    guStart();
+  
+  
+  
 }
 
 
