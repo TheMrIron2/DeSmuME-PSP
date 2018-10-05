@@ -45,6 +45,38 @@
 PSP_MODULE_INFO("DSOnPSP", 0, 1, 1);
 PSP_MAIN_THREAD_ATTR(PSP_THREAD_ATTR_VFPU | PSP_THREAD_ATTR_USER);
 
+const char * save_types[] = {
+    "Autodetect",
+    "EEPROM 4kbit", // unchanged for compatibility
+    "EEPROM 64kbit",
+    "EEPROM 512kbit",
+    "FRAM 256kbit",
+    "FLASH 2mbit",
+    "FLASH 4mbit",
+    NULL
+};
+
+// Video flags
+
+#include <pspgu.h>
+#include <pspgum.h>
+#include <psprtc.h>
+
+static int sdl_videoFlags = 0;
+static int sdl_quit = 0;
+static u16 keypad;
+  
+u8 *GPU_vram[512*192*4];
+u8 *GPU_mergeA[256*192*4];
+u8 *GPU_mergeB[256*192*4];
+
+u32 fps_timing = 0;
+u32 fps_frame_counter = 0;
+u32 fps_previous_time = 0;
+u32 fps_temp_time;
+u32 opengl_2d = 0;
+
+
 int main()
 {
   
