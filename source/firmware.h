@@ -18,7 +18,8 @@
 #ifndef _FIRMWARE_H_
 #define _FIRMWARE_H_
 
-#include <string>
+#include <stdio.h>
+#include <string.h>
 #include "types.h"
 
 #define NDS_FW_SIZE_V1 (256 * 1024)		/* size of fw memory on nds v1 */
@@ -109,7 +110,7 @@ struct fw_memory_chip
 	int type; //type of Memory
 	char *filename;
 	FILE *fp;
-	
+
 	// needs only for firmware
 	bool isFirmware;
 	char userfile[MAX_PATH];
