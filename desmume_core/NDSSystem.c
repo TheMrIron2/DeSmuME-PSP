@@ -50,7 +50,7 @@ int TotalLagFrames;
 NDSSystem nds;
 
 #ifdef __psp__
-char* gpszROMFilename = 0;	/* ROMƒtƒ@ƒCƒ‹–¼ */
+char* gpszROMFilename = 0;	/* ROMãƒ•ã‚¡ã‚¤ãƒ«å */
 #endif
 
 static u32
@@ -374,9 +374,7 @@ int NDS_LoadROM( const char *filename, int bmtype, u32 bmsize,
    reader = ROMReaderInit(&noext);
    type = ROM_NDS;
 
-   p = noext;
-   p += strlen(p);
-   p -= strlen(DSGBA_EXTENSTION);
+	p = (noext+strlen(p))-strlen(DSGBA_EXTENSTION); //Too much ado about nothing (iyenal optm)
 
    if(memcmp(p, DSGBA_EXTENSTION, strlen(DSGBA_EXTENSTION)) == 0)
       type = ROM_DSGBA;
@@ -507,13 +505,13 @@ void NDS_Reset( void)
 
 #ifdef __psp__
 	{
-		/* ARM9ƒCƒ[ƒW“Ç‚Ýž‚Ý */
+		/* ARM9ã‚¤ãƒ¡ãƒ¼ã‚¸èª­ã¿è¾¼ã¿ */
 		ROMReader_struct * reader;
 		FILE * file;
 		char * noext;
 
 		noext = strdup( gpszROMFilename );
-		reader = ROMReaderInit( &noext );	/* zip‚È‚Ç‚Ì‚Æ‚«ƒtƒ@ƒCƒ‹–¼‚Ì‚Ý‚É‚È‚é */
+		reader = ROMReaderInit( &noext );	/* zipãªã©ã®ã¨ããƒ•ã‚¡ã‚¤ãƒ«åã®ã¿ã«ãªã‚‹ */
 		
 		file = (FILE*)reader->Init( gpszROMFilename );
 		reader->Seek( file, src, SEEK_SET );
@@ -541,13 +539,13 @@ void NDS_Reset( void)
      
 #ifdef __psp__
 	{
-		/* ARM7ƒCƒ[ƒW“Ç‚Ýž‚Ý */
+		/* ARM7ã‚¤ãƒ¡ãƒ¼ã‚¸èª­ã¿è¾¼ã¿ */
 		ROMReader_struct * reader;
 		FILE * file;
 		char * noext;
 
 		noext = strdup( gpszROMFilename );
-		reader = ROMReaderInit( &noext );	/* zip‚È‚Ç‚Ì‚Æ‚«ƒtƒ@ƒCƒ‹–¼‚Ì‚Ý‚É‚È‚é */
+		reader = ROMReaderInit( &noext );	/* zipãªã©ã®ã¨ããƒ•ã‚¡ã‚¤ãƒ«åã®ã¿ã«ãªã‚‹ */
 		
 		file = (FILE*)reader->Init( gpszROMFilename );
 		reader->Seek( file, src, SEEK_SET );
@@ -756,7 +754,7 @@ int NDS_WriteBMP(const char *filename)
     fwrite(&fileheader, 1, sizeof(fileheader), file);
     fwrite(&imageheader, 1, sizeof(imageheader), file);
 
-    for(j=0;j<192*2;j++)
+    for(j=0;j<192*2;j++) //What a huge loop! We must find a way to optimize that (iyenal optm)
     {
        for(i=0;i<256;i++)
        {
