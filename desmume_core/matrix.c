@@ -230,9 +230,7 @@ float Vector3Dot(const float *a, const float *b)
 
 float Vector3Length(const float *a)
 {
-	float lengthSquared = Vector3Dot(a,a);
-	float length = sqrt(lengthSquared);
-	return length;
+	return sqrt(Vector3Dot(a,a)); //Saved the usage of 2 variables (iyenal optm)
 }
 
 void Vector3Add(float *dst, const float *src)
@@ -258,8 +256,7 @@ void Vector3Copy(float *dst, const float *src)
 
 void Vector3Normalize(float *dst)
 {
-	float length = Vector3Length(dst);
-	Vector3Scale(dst,1.0f/length);
+	Vector3Scale(dst,1.0f/Vector3Length(dst)); //Saved the usage of one variable (iyenal optm)
 }
 
 void Vector4Copy(float *dst, const float *src)
