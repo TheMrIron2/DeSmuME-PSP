@@ -186,21 +186,13 @@ INLINE void rtcPost(u8 data)
 						rtc.bitSizeRead = 3 << 3;
 						break;
 					}
-				case 4:				// freq/alarm 1
-					//INFO("RTC: read freq");
-					break;
-				case 5:				// alarm 2
-					//INFO("RTC: read alarm 2\n");
-					break;
-				case 6:				// clock adjust
-					//INFO("RTC: read clock adjust\n");
-					break;
-				case 7:				// free register
-					//INFO("RTC: read free register\n");
-					break;
 				default:
-					rtc.bitSizeRead = 0;
-					break;
+					if((rtc.cmd==4)||(rtc.cmd==5)||(rtc.cmd==6)||(rtc.cmd==7)) // Removed 4 cases (iyenal optm)
+						break;
+					else{
+						rtc.bitSizeRead = 0;
+						break;
+					}
 			}
 		}
 		return;
@@ -222,23 +214,7 @@ INLINE void rtcPost(u8 data)
 			rtc.regStatus2 = data;
 			//INFO("RTC: write status 2 (%X)\n", data);
 			break;
-		case 2:				// date & time
-			//INFO("RTC: write date & time (%X)\n", data);
-			break;
-		case 3:				// time
-			//INFO("RTC: write time (%X)\n", data);
-			break;
-		case 4:				// freq/alarm 1
-			//INFO("RTC: write freq (%X)", data);
-			break;
-		case 5:				// alarm 2
-			//INFO("RTC: write alarm 2 (%X)\n", data);
-			break;
-		case 6:				// clock adjust
-			//INFO("RTC: write clock adjust (%X)\n", data);
-			break;
-		case 7:				// free register
-			//INFO("RTC: write free register (%X)\n", data);
+		default: // Same, many cases without need (iyenal optm)
 			break;
 
 	}
