@@ -148,7 +148,7 @@ int SetupCallbacks(void) {
 }
 
 void DSonpspExec() {
-		sdl_quit = process_ctrls_events( &keypad, NULL, nds_screen_size_ratio);
+		sdl_quit = process_ctrls_events(&keypad, NULL, nds_screen_size_ratio);
 
     // Update mouse position and click
     if(mouse.down) {
@@ -160,7 +160,7 @@ void DSonpspExec() {
         mouse.click = FALSE;
     }
 
-		update_keypad(keypad); // Update keypad
+		update_keypad(keypad);
 		NDS_exec(FALSE);
 
 		if (enable_sound) {
@@ -186,7 +186,8 @@ int main(SceSize args, void *argp) {
 
     SceCtrlData pad;
 
-    DSEmuGui(argp,rom_filename);
+    // this is our gui (frontend.h)
+    DSEmuGui(argp, rom_filename);
 
     pspDebugScreenClear();
     DoConfig();
@@ -204,7 +205,7 @@ int main(SceSize args, void *argp) {
         arm7_memio, &arm7_ctrl_iface);
 
     // Create the dummy firmware
-    NDS_CreateDummyFirmware( &fw_config);
+    NDS_CreateDummyFirmware(&fw_config);
 
     if (enable_sound) {
         SPU_ChangeSoundCore(SNDCORE_SDL, 735 * 4);
@@ -225,23 +226,24 @@ int main(SceSize args, void *argp) {
 
     execute = TRUE;
 
-    while(!sdl_quit) {
-      // Look for queued events and update keypad status
-	    if (frameskip > 0) {
-	        for(f= 0; f<frameskip; f++) DSonpspExec();
-	    } else {
-          DSonpspExec();
-      }
+    while (!sdl_quit) {
+        // Look for queued events and update keypad status
+	      if (frameskip > 0) {
+	          for(f= 0; f<frameskip; f++) DSonpspExec();
+	      } else {
+            DSonpspExec();
+        }
 
-      Gu_draw();
+        Gu_draw();
 
-      if (showfps) {
-          FPS();
-      }
+        if (showfps) {
+            FPS();
+        }
 
-	    if (enable_sound) {
-		      SPU_Emulate();
-	    }
+        // Why is this here a second time?
+        if (enable_sound) {
+            SPU_Emulate();
+	      }
     }
 
     SDL_Quit();
