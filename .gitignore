@@ -1,0 +1,7 @@
+# Object file
+*.o
+*.SFO
+*.elf
+
+# Binarys
+EBOOT.PBP
