@@ -24,7 +24,14 @@
 #include <pspdisplay.h>
 #include <pspctrl.h>
 #include <pspvfpu.h>
+#include <pspgu.h>
+#include <pspgum.h>
+#include <psprtc.h>
+
+#include <GL/gl.h>
+#include <GL/glu.h>
 #include <stdio.h>
+
 #include "video.h"
 #include "MMU.h"
 #include "NDSSystem.h"
@@ -36,11 +43,9 @@
 #include "gdbstub.h"
 #include "FrontEnd.h"
 #include "Version.h"
-#include <GL/gl.h>
-#include <GL/glu.h>
 #include "callbacks.h"
-#include "../intraFont/libraries/graphics.h"
-#include "../intraFont/intraFont.h"
+#include "intraFont/libraries/graphics.h"
+#include "intraFont/intraFont.h"
 
 PSP_MODULE_INFO("DSOnPSP", 0, 1, 1);
 PSP_MAIN_THREAD_ATTR(PSP_THREAD_ATTR_VFPU | PSP_THREAD_ATTR_USER);
@@ -56,16 +61,22 @@ const char * save_types[] = {
     NULL
 };
 
+enum colors {
+  RED =  0xFF0000FF,
+  GREEN =  0xFF00FF00,
+  BLUE =  0xFFFF0000,
+  WHITE =  0xFFFFFFFF,
+  LITEGRAY = 0xFFBFBFBF,
+  GRAY =  0xFF7F7F7F,
+  DARKGRAY = 0xFF3F3F3F,
+  BLACK = 0xFF000000,
+};
+
 // Video flags
-
-#include <pspgu.h>
-#include <pspgum.h>
-#include <psprtc.h>
-
 static int sdl_videoFlags = 0;
 static int sdl_quit = 0;
 static u16 keypad;
-  
+
 u8 *GPU_vram[512*192*4];
 u8 *GPU_mergeA[256*192*4];
 u8 *GPU_mergeB[256*192*4];
@@ -77,37 +88,17 @@ u32 fps_temp_time;
 u32 opengl_2d = 0;
 
 
-int main()
-{
-  
- scePowerSetClockFrequency(333, 333, 166);
- pspDebugScreenInit();
- setupCallbacks();
-  
-  enum colors {
-    RED =  0xFF0000FF,
-    GREEN =  0xFF00FF00,
-    BLUE =  0xFFFF0000,
-    WHITE =  0xFFFFFFFF,
-    LITEGRAY = 0xFFBFBFBF,
-    GRAY =  0xFF7F7F7F,
-    DARKGRAY = 0xFF3F3F3F,    
-    BLACK = 0xFF000000,
-  };
-  
-   intraFontInit();
-  
-  intraFont* ltn[16];                                  
-    intraFontLoad("flash0:/font/ltn4.pgf",0);      
-    intraFontSetStyle(ltn4,1.0f,WHITE,DARKGRAY,0.f,0);
-   initGraphics();
-   clearScreen(GRAY);
+int main() {
+    scePowerSetClockFrequency(333, 333, 166);
+    pspDebugScreenInit();
+    setupCallbacks();
+
+    intraFontInit();
+
+    intraFont* ltn[16];
+    intraFontLoad("flash0:/font/ltn4.pgf", 0);
+    intraFontSetStyle(ltn4, 1.0f, WHITE, DARKGRAY, 0.f, 0);
+    initGraphics();
+    clearScreen(GRAY);
     guStart();
-  
-  
-  
 }
-
-
-
-

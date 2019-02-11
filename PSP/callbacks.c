@@ -9,6 +9,7 @@
 #include <pspkernel.h>
 #include <pspdisplay.h>
 #include <pspdebug.h>
+
 #include <stdlib.h>
 #include <stdio.h>
 #include <math.h>
@@ -17,19 +18,16 @@
 
 static int exitRequest = 0;
 
-int running()
-{
+int running() {
 	return !exitRequest;
 }
 
-int exitCallback(int arg1, int arg2, void *common)
-{
+int exitCallback(int arg1, int arg2, void *common) {
 	exitRequest = 1;
 	return 0;
 }
 
-int callbackThread(SceSize args, void *argp)
-{
+int callbackThread(SceSize args, void *argp) {
 	int cbid;
 
 	cbid = sceKernelCreateCallback("Exit Callback", exitCallback, NULL);
@@ -40,13 +38,11 @@ int callbackThread(SceSize args, void *argp)
 	return 0;
 }
 
-int setupCallbacks(void)
-{
+int setupCallbacks(void) {
 	int thid = 0;
 
 	thid = sceKernelCreateThread("update_thread", callbackThread, 0x11, 0xFA0, 0, 0);
-	if(thid >= 0)
-	{
+	if(thid >= 0) {
 		sceKernelStartThread(thid, 0, 0);
 	}
 
