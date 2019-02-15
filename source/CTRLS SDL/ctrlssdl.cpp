@@ -35,7 +35,7 @@
 #define MOV_AA 2
 #define MOV_BB 3
 //#define MENU_FIRST_OPTION_Y  150
-//////////////#define MENU_FIRST_OPTION_Y   40
+//#define MENU_FIRST_OPTION_Y   40
 //HCF Added 3d and dynarec options
 #define MENU_FIRST_OPTION_Y   35
 #define MENU_OPTION_HEIGHT    20
@@ -53,7 +53,7 @@ Sint16 xbutton;
 Sint16 ybutton;
 Sint16 backbutton; //BACK button
 Sint16 startbutton; //START button
-Sint16 rstick; 
+Sint16 rstick;
 Sint16 dpad; //dpad
 Sint16 ltrigger, rtrigger; //Trigger buttons
 SDL_Joystick *GAMEPAD; //Gamepad
@@ -74,7 +74,7 @@ int iModoGraficoNuevo = 0;
 int iCambiandoModoGrafico = 0;
 int iMouseSpeed = MOUSE_DEFAULT_SPEED;
 bool bAutoFrameskip;
-int nFrameskip;  //This will store the frameskip configured by the user 
+int nFrameskip;  //This will store the frameskip configured by the user
     		     //On the other hand, "frameskip" stores the actual frameskip
 int iUsarDynarec = 1; //iGlobalSpeed = 1;
 
@@ -86,11 +86,11 @@ int iEnableSound;
 
 //HCF 9
 struct mouse_status mouse;
-/* Current keyboard configuration */
+// Current keyboard configuration
 u16 keyboard_cfg[NB_KEYS];
-/* Current joypad configuration */
+// Current joypad configuration
 u16 joypad_cfg[NB_KEYS];
-/* Number of detected joypads */
+// Number of detected joypads
 u16 nbr_joy;
 
 static SDL_Joystick **open_joysticks = NULL;
@@ -114,19 +114,19 @@ const u16 default_psp_cfg_v[NB_KEYS] =
 #endif
   //HCF
 const u16 default_xb_cfg_v[NB_KEYS] =
-  { BOTON_AA,    //A
-	BOTON_BB,     //B
-	BOTON_BACK,	//Select
+  { BOTON_AA,           //A
+	BOTON_BB,           //B
+	BOTON_BACK,         //Select
 	BOTON_START,		//Start
 	BOTON_ABAJO,		//Right
 	BOTON_ARRIBA,		//Left
 	BOTON_DERECHA,		//Up
-	BOTON_IZQUIERDA,		//Down
-	BOTON_RTRIGGER,	//R
-	BOTON_LTRIGGER,	//L
-	BOTON_XX,  //X
-	BOTON_YY     //Y
-  };  
+	BOTON_IZQUIERDA,    //Down
+	BOTON_RTRIGGER,	    //R
+	BOTON_LTRIGGER,	    //L
+	BOTON_XX,           //X
+	BOTON_YY            //Y
+  };
 
 // Horizontal
 #ifdef __psp__
@@ -147,21 +147,21 @@ const u16 default_psp_cfg_h[NB_KEYS] =
 #endif
 //HCF
 const u16 default_xb_cfg_h[NB_KEYS] =
-  { BOTON_AA,    //A
-	BOTON_BB,     //B
-	BOTON_BACK,	//Select
+  { BOTON_AA,           //A
+	BOTON_BB,           //B
+	BOTON_BACK,	        //Select
 	BOTON_START,		//Start
 	BOTON_DERECHA,		//Right
-	BOTON_IZQUIERDA,		//Left
+	BOTON_IZQUIERDA,    //Left
 	BOTON_ARRIBA,		//Up
 	BOTON_ABAJO,		//Down
-	BOTON_RTRIGGER,	//R
-	BOTON_LTRIGGER,	//L
-	BOTON_XX,  //X
-	BOTON_YY     //Y
+	BOTON_RTRIGGER,	    //R
+	BOTON_LTRIGGER,	    //L
+	BOTON_XX,           //X
+	BOTON_YY            //Y
   };
 
-/* Keypad key names */
+// Keypad key names
 const char *key_names[NB_KEYS] =
 {
   "A", "B", "Select", "Start",
@@ -170,28 +170,28 @@ const char *key_names[NB_KEYS] =
   "Debug", "Boost"
 };
 
-/* Default joypad configuration */
+// Default joypad configuration
 const u16 default_joypad_cfg[NB_KEYS] =
-  { 1,  // A
-    0,  // B
-    5,  // select
-    8,  // start
+  { 1,   // A
+    0,   // B
+    5,   // select
+    8,   // start
     256, // Right -- Start cheating abit...
     256, // Left
     512, // Up
     512, // Down  -- End of cheating.
-    7,  // R
-    6,  // L
-    4,  // X
-    3,  // Y
-    -1, // DEBUG
-    -1  // BOOST
+    7,   // R
+    6,   // L
+    4,   // X
+    3,   // Y
+    -1,  // DEBUG
+    -1   // BOOST
   };
 
 const u16 default_keyboard_cfg[NB_KEYS] =
 {
-  97, // a
-  98, // b
+  97,    // a
+  98,    // b
   65288, // backspace
   65293, // enter
   65363, // directional arrows
@@ -200,8 +200,8 @@ const u16 default_keyboard_cfg[NB_KEYS] =
   65364,
   65454, // numeric .
   65456, // numeric 0
-  120, // x
-  121, // y
+  120,   // x
+  121,   // y
   112,
   113
 };
@@ -213,7 +213,7 @@ void vdRellenaBotones(void)
 	//keys = SDL_GetKeyState(NULL);
 	SDL_JoystickUpdate(); //manual refresh of the gamepad(s)
 	//parse all gamepads
-	
+
 	joyx = SDL_JoystickGetAxis(GAMEPAD, 0);
 	joyy = SDL_JoystickGetAxis(GAMEPAD, 1);
 	dpad = SDL_JoystickGetHat(GAMEPAD, 0);
@@ -228,7 +228,7 @@ void vdRellenaBotones(void)
 	xbutton = SDL_JoystickGetButton(GAMEPAD,2);
 	ybutton = SDL_JoystickGetButton(GAMEPAD,3);
 	startbutton = SDL_JoystickGetButton(GAMEPAD,8);
-	
+
 
 	if(startbutton)
 	{
@@ -318,7 +318,7 @@ void vdRellenaBotones(void)
 	{
 	    ashBotones[BOTON_XX] = 0;
 	}
-	
+
 	if(dpad & SDL_HAT_UP)
 	{
 		ashBotones[BOTON_ARRIBA] = 1;
@@ -351,13 +351,13 @@ void vdRellenaBotones(void)
 	{
 	    ashBotones[BOTON_DERECHA] = 0;
 	}
-	
+
 }
 
 void vdXBOptionsMenu(int iMenuInicial)
 {
 	char cAux = '0';
-		
+
 	int iRedibujar = 1;
 	int iLongitud;
 	int salir = 0;
@@ -366,26 +366,26 @@ void vdXBOptionsMenu(int iMenuInicial)
 	int iOpcionSeleccionada = 0;
 
 	int iVideoModeChanged = 0;
-	
+
 	SDL_Surface *picTexto;
 	SDL_Surface *picRectangle;
 	SDL_Surface *picRectangleTemp;
 	SDL_Rect rectVentana;
 	SDL_Rect rectTexto;
-	
+
 	char achTexto[100];
-	
-	SDL_Color textColor = { 255, 255, 255 }; 
-	
+
+	SDL_Color textColor = { 255, 255, 255 };
+
 	//HCF Por que se guardaba en temporal?
 	///iFrameskip = nFrameskip;
 
-	picRectangleTemp = IMG_Load("rectangle.png");	
-			
+	picRectangleTemp = IMG_Load("rectangle.png");
+
 	SDL_SetColorKey( picRectangleTemp, SDL_SRCCOLORKEY | SDL_RLEACCEL, SDL_MapRGB(picRectangleTemp->format, 255, 0, 255) );
 	picRectangle = SDL_DisplayFormatAlpha(picRectangleTemp);
 	SDL_FreeSurface(picRectangleTemp);
-	
+
 	//rectVentana.x = 100;
 	//rectVentana.x = (SDLscreen->w - 300) / 2;
 	rectVentana.x = (SDLscreen->w - 250) / 2;
@@ -407,21 +407,21 @@ void vdXBOptionsMenu(int iMenuInicial)
 	rectTexto.x = rectVentana.x + 30;
 	//rectTexto.y = 130;
 	rectTexto.y = 30;
-	
+
 	if( iMenuInicial == 1 )
 	{
-		//iNumOpciones = 4;	
+		//iNumOpciones = 4;
 		//HCF desmumeX!!
-		
-		//iNumOpciones = 6;	
+
+		//iNumOpciones = 6;
 		//Se anyade bAutoFrameskip
 
-		iNumOpciones = 8;	
+		iNumOpciones = 8;
 		//Se anyaden emula3D y bUsaDynarec
 	}
 	else
 	{
-		//iNumOpciones = 1;	
+		//iNumOpciones = 1;
 
 		//En desmumeX mostramos todas las opciones
 		iNumOpciones = 8;
@@ -429,7 +429,7 @@ void vdXBOptionsMenu(int iMenuInicial)
 
 	while(!salir)
 	{
-	
+
 		//g_input.Update();
 		vdRellenaBotones();
 		//if(g_input.IsButtonPressed(Generic_DPadUp))
@@ -442,7 +442,7 @@ void vdXBOptionsMenu(int iMenuInicial)
 					iOpcionSeleccionada--;
 					iRedibujar = 1;
 				}
-				
+
 			}
 			movanterior = MOV_ARRIBA;
 		}
@@ -450,7 +450,7 @@ void vdXBOptionsMenu(int iMenuInicial)
 		{
 			movanterior = -1;
 		}
-		
+
 		//if(g_input.IsButtonPressed(Generic_DPadDown))
 		if( ashBotones[BOTON_ABAJO] )
 		{
@@ -467,8 +467,8 @@ void vdXBOptionsMenu(int iMenuInicial)
 		else if(movanterior == MOV_ABAJO)
 		{
 			movanterior = -1;
-		}	
-		
+		}
+
 		//if(g_input.IsButtonPressed(Generic_A))
 		if( ashBotones[BOTON_AA] )
 		{
@@ -489,11 +489,11 @@ void vdXBOptionsMenu(int iMenuInicial)
 					//MOUSE Speed
 					if(iMouseSpeed < 9)
 						iMouseSpeed++;
-					
+
 					//else
-					//	iSpeedMouse = 1;	
-					
-										
+					//	iSpeedMouse = 1;
+
+
 					iRedibujar = 1;
 				}
 				else if( iOpcionSeleccionada == 5 )
@@ -514,28 +514,28 @@ void vdXBOptionsMenu(int iMenuInicial)
 						iGlobalSpeed++;
 					*/
 					//else
-					//	iGlobalSpeed = 1;	
-					
-										
+					//	iGlobalSpeed = 1;
+
+
 					iRedibujar = 1;
 				}
 				else if( iOpcionSeleccionada == 6 )
 				{
 					switch(iSoundQuality)
 					{
-						case 8:				
+						case 8:
 							iSoundQuality = 4;
 							break;
-						case 4:				
+						case 4:
 							iSoundQuality = 2;
 							break;
-						case 2:				
+						case 2:
 							iSoundQuality = 1;
 							break;
 						default:
 							break;
 					}
-									
+
 					iRedibujar = 1;
 				}
 				else if( iOpcionSeleccionada == 2 )
@@ -591,7 +591,7 @@ void vdXBOptionsMenu(int iMenuInicial)
 
 					iRedibujar = 1;
 				}
-				
+
 			}
 			movanterior = MOV_AA;
 		}
@@ -618,20 +618,20 @@ void vdXBOptionsMenu(int iMenuInicial)
 
 					enable_sound = iEnableSound;
 					iRedibujar = 1;
-					
+
 				}
 				else if( iOpcionSeleccionada == 4 )
 				{
 					//MOUSE SPEED
 					if(iMouseSpeed > 1)
 						iMouseSpeed--;
-					
+
 					//else
 					//	iSpeedMouse = 9;
-					
-					
+
+
 					iRedibujar = 1;
-					
+
 				}
 				else if( iOpcionSeleccionada == 5 )
 				{
@@ -649,26 +649,26 @@ void vdXBOptionsMenu(int iMenuInicial)
 					/*
 					if(iGlobalSpeed > 1)
 						iGlobalSpeed--;
-					*/				
+					*/
 					iRedibujar = 1;
 				}
 				else if( iOpcionSeleccionada == 6 )
 				{
 					switch(iSoundQuality)
 					{
-						case 1:				
+						case 1:
 							iSoundQuality = 2;
 							break;
-						case 2:				
+						case 2:
 							iSoundQuality = 4;
 							break;
-						case 4:				
+						case 4:
 							iSoundQuality = 8;
 							break;
 						default:
 							break;
 					}
-									
+
 					iRedibujar = 1;
 				}
 				else if( iOpcionSeleccionada == 2 )
@@ -724,7 +724,7 @@ void vdXBOptionsMenu(int iMenuInicial)
 
 					iRedibujar = 1;
 				}
-				
+
 			}
 			movanterior = MOV_BB;
 		}
@@ -738,7 +738,7 @@ void vdXBOptionsMenu(int iMenuInicial)
 		{
 			salir = 1;
 		}
-			
+
 		if( iRedibujar)
 		{
 			//rectVentana.x = 100;
@@ -752,12 +752,12 @@ void vdXBOptionsMenu(int iMenuInicial)
 			//rectVentana.h = 280;
 			rectVentana.h = 200;
 			//desmumeX
-			
+
 			SDL_FillRect(SDLscreen, &rectVentana, SDL_MapRGB(SDLscreen->format, 0, 50, 50));
 
 			//TEXTO OPTIONS
 			//strcpy(achTexto, "OPTIONS");
-			
+
 			//TEXTO 3D Emulation (sustituye al texto de OPTIONS)
 			if(emula3D)
 			{
@@ -767,13 +767,13 @@ void vdXBOptionsMenu(int iMenuInicial)
 			{
 				strcpy(achTexto, "3D emulation: OFF");
 			}
-						
+
 			/////rectTexto.y = 17;
 			rectTexto.y = MENU_FIRST_OPTION_Y - MENU_OPTION_HEIGHT;
-			picTexto = TTF_RenderText_Solid( font, achTexto, textColor ); 
+			picTexto = TTF_RenderText_Solid( font, achTexto, textColor );
 			SDL_BlitSurface(picTexto, NULL, SDLscreen, &rectTexto);
 			SDL_FreeSurface(picTexto);
-		
+
 			//TEXTO AUTO FRAMESKIP
 			if(bAutoFrameskip)
 			{
@@ -783,9 +783,9 @@ void vdXBOptionsMenu(int iMenuInicial)
 			{
 				strcpy(achTexto, "Frameskip: Fixed");
 			}
-						
+
 			rectTexto.y = MENU_FIRST_OPTION_Y;
-			picTexto = TTF_RenderText_Solid( font, achTexto, textColor ); 
+			picTexto = TTF_RenderText_Solid( font, achTexto, textColor );
 			SDL_BlitSurface(picTexto, NULL, SDLscreen, &rectTexto);
 			SDL_FreeSurface(picTexto);
 
@@ -802,12 +802,12 @@ void vdXBOptionsMenu(int iMenuInicial)
 			iLongitud = strlen(achTexto);
 			achTexto[iLongitud] = cAux;
 			achTexto[iLongitud + 1] = '\0';
-			
+
 			rectTexto.y = MENU_FIRST_OPTION_Y + MENU_OPTION_HEIGHT;
-			picTexto = TTF_RenderText_Solid( font, achTexto, textColor ); 
+			picTexto = TTF_RenderText_Solid( font, achTexto, textColor );
 			SDL_BlitSurface(picTexto, NULL, SDLscreen, &rectTexto);
 			SDL_FreeSurface(picTexto);
-			
+
 			//TEXTO SOUND, solo en menu inicial
 			//if( iMenuInicial == 1 )
 			//{
@@ -832,21 +832,20 @@ void vdXBOptionsMenu(int iMenuInicial)
 				{
 					strcpy(achTexto, "Sound On, Overclocked x4");
 				}
-				//////
 
 				rectTexto.y = ( (2 * MENU_OPTION_HEIGHT) + MENU_FIRST_OPTION_Y );
-				picTexto = TTF_RenderText_Solid( font, achTexto, textColor ); 
+				picTexto = TTF_RenderText_Solid( font, achTexto, textColor );
 				SDL_BlitSurface(picTexto, NULL, SDLscreen, &rectTexto);
 				SDL_FreeSurface(picTexto);
 
 				//TEXTO MOUSE
 				sprintf(achTexto, "Pointer Speed: %d", iMouseSpeed);
 				rectTexto.y = ( (3 * MENU_OPTION_HEIGHT) + MENU_FIRST_OPTION_Y );
-				picTexto = TTF_RenderText_Solid( font, achTexto, textColor ); 
+				picTexto = TTF_RenderText_Solid( font, achTexto, textColor );
 				SDL_BlitSurface(picTexto, NULL, SDLscreen, &rectTexto);
 				SDL_FreeSurface(picTexto);
 
-				//TEXTO BUS SPEED	
+				//TEXTO BUS SPEED
 				//SE CAMBIA POR BLIT ALL
 				if(bBlitAll)
 				{
@@ -855,10 +854,10 @@ void vdXBOptionsMenu(int iMenuInicial)
 				else
 				{
 					strcpy(achTexto, "Graphics: optimized");
-				}				
+				}
 				//sprintf(achTexto, "Bus Speed: x%d", iGlobalSpeed);
 				rectTexto.y = ( (4 * MENU_OPTION_HEIGHT) + MENU_FIRST_OPTION_Y );
-				picTexto = TTF_RenderText_Solid( font, achTexto, textColor ); 
+				picTexto = TTF_RenderText_Solid( font, achTexto, textColor );
 				SDL_BlitSurface(picTexto, NULL, SDLscreen, &rectTexto);
 				SDL_FreeSurface(picTexto);
 
@@ -880,12 +879,12 @@ void vdXBOptionsMenu(int iMenuInicial)
 				{
 					strcpy(achTexto, "Audio Channels: 2");
 				}
-				
+
 				rectTexto.y = ( (5 * MENU_OPTION_HEIGHT) + MENU_FIRST_OPTION_Y );
-				picTexto = TTF_RenderText_Solid( font, achTexto, textColor ); 
+				picTexto = TTF_RenderText_Solid( font, achTexto, textColor );
 				SDL_BlitSurface(picTexto, NULL, SDLscreen, &rectTexto);
 				SDL_FreeSurface(picTexto);
-				
+
 				//TEXTO USE DYNAREC
 				if(iUsarDynarec)
 				{
@@ -895,16 +894,16 @@ void vdXBOptionsMenu(int iMenuInicial)
 				{
 					strcpy(achTexto, "Use Dynarec: No (slower)");
 				}
-							
+
 				rectTexto.y = ( (6 * MENU_OPTION_HEIGHT) + MENU_FIRST_OPTION_Y );
-				picTexto = TTF_RenderText_Solid( font, achTexto, textColor ); 
+				picTexto = TTF_RenderText_Solid( font, achTexto, textColor );
 				SDL_BlitSurface(picTexto, NULL, SDLscreen, &rectTexto);
 				SDL_FreeSurface(picTexto);
-				
+
 			//} //Menu inicial
 
-		
-			
+
+
 			//TEXTO INSTRUCTIONS
 			strcpy(achTexto, "A/B: Toggle   START: Confirm ");
 			//DesmumeX
@@ -915,10 +914,10 @@ void vdXBOptionsMenu(int iMenuInicial)
 			//rectTexto.y = 360;
 			//Anyado Auto Frameskip
 
-			picTexto = TTF_RenderText_Solid( font, achTexto, textColor ); 
+			picTexto = TTF_RenderText_Solid( font, achTexto, textColor );
 			SDL_BlitSurface(picTexto, NULL, SDLscreen, &rectTexto);
 			SDL_FreeSurface(picTexto);
-			
+
 			//RECTANGLE
 			switch(iOpcionSeleccionada)
 			{
@@ -948,40 +947,40 @@ void vdXBOptionsMenu(int iMenuInicial)
 					break;
 				default:
 					rectTexto.y = MENU_FIRST_OPTION_Y - MENU_OPTION_HEIGHT;
-					break;	
+					break;
 			}
-			
+
 			rectTexto.y -= MENU_RECTANGLE_OFFSET_Y;
 			rectTexto.x -= MENU_RECTANGLE_OFFSET_X;
 			SDL_BlitSurface(picRectangle, NULL, SDLscreen, &rectTexto);
 			rectTexto.x += MENU_RECTANGLE_OFFSET_X;
-						
-			SDL_Flip(SDLscreen);	
+
+			SDL_Flip(SDLscreen);
 		}
-		
+
 		iRedibujar = 0;
-		
+
 		SDL_Delay(20);
-		
+
 	}
 
 	//HCF: Free the memory of the rectangle
 	SDL_FreeSurface(picRectangle);
-	
+
 }
 
-/* Load default joystick and keyboard configurations */
+// Load default joystick and keyboard configurations
 void load_default_config( void)
 {
   memcpy(keyboard_cfg, default_keyboard_cfg, sizeof(keyboard_cfg));
   memcpy(joypad_cfg, default_joypad_cfg, sizeof(joypad_cfg));
 }
 
-/* Initialize joysticks */
+// Initialize joysticks
 BOOL init_joy( void) {
   int i;
   BOOL joy_init_good = TRUE;
-  
+
   set_joy_keys(default_joypad_cfg);
 
   if(SDL_InitSubSystem(SDL_INIT_JOYSTICK) == -1)
@@ -992,7 +991,6 @@ BOOL init_joy( void) {
     }
 
   nbr_joy = SDL_NumJoysticks();
-  //printf("Nbr of joysticks: %d\n\n", nbr_joy);
 
   if ( nbr_joy > 0) {
     open_joysticks = (SDL_Joystick**)
@@ -1002,13 +1000,6 @@ BOOL init_joy( void) {
       for (i = 0; i < nbr_joy; i++)
         {
           SDL_Joystick * joy = SDL_JoystickOpen(i);
-          /*
-		  printf("Joystick %d %s\n", i, SDL_JoystickName(i));
-          printf("Axes: %d\n", SDL_JoystickNumAxes(joy));
-          printf("Buttons: %d\n", SDL_JoystickNumButtons(joy));
-          printf("Trackballs: %d\n", SDL_JoystickNumBalls(joy));
-          printf("Hats: %d\n\n", SDL_JoystickNumHats(joy));
-		  */
         }
     }
     else {
@@ -1019,23 +1010,22 @@ BOOL init_joy( void) {
   return joy_init_good;
 }
 
-/* Set all buttons at once */
+// Set all buttons at once
 void set_joy_keys(const u16 joyCfg[])
 {
   memcpy(joypad_cfg, joyCfg, sizeof(joypad_cfg));
 }
 
-/* Set all buttons at once */
+// Set all buttons at once
 void set_kb_keys(u16 kbCfg[])
 {
   memcpy(keyboard_cfg, kbCfg, sizeof(keyboard_cfg));
 }
 
-/* Unload joysticks */
+// Unload joysticks
 void uninit_joy( void)
 {
   int i;
-  //printf("Disabling joystick support.\n");
 
   if ( open_joysticks != NULL) {
     for (i = 0; i < SDL_NumJoysticks(); i++) {
@@ -1049,7 +1039,7 @@ void uninit_joy( void)
   SDL_QuitSubSystem(SDL_INIT_JOYSTICK);
 }
 
-/* Return keypad vector with given key set to 1 */
+// Return keypad vector with given key set to 1
 u16 lookup_joy_key (u16 keyval) {
   int i;
   u16 Key = 0;
@@ -1059,7 +1049,7 @@ u16 lookup_joy_key (u16 keyval) {
   return Key;
 }
 
-/* Return keypad vector with given key set to 1 */
+// Return keypad vector with given key set to 1
 u16 lookup_key (u16 keyval) {
   int i;
   u16 Key = 0;
@@ -1069,29 +1059,27 @@ u16 lookup_key (u16 keyval) {
   return Key;
 }
 
-/* Empty SDL Events' queue */
+// Empty SDL Events' queue
 static void clear_events( void)
 {
   SDL_Event event;
-  /* IMPORTANT: Reenable joystick events iif needed. */
+  // IMPORTANT: Reenable joystick events if needed.
   if(SDL_JoystickEventState(SDL_QUERY) == SDL_IGNORE)
     SDL_JoystickEventState(SDL_ENABLE);
 
-  /* There's an event waiting to be processed? */
-  while (SDL_PollEvent(&event))
-    {
-    }
+  // There's an event waiting to be processed?
+  while (SDL_PollEvent(&event)) {}
 
   return;
 }
 
-/* Get and set a new joystick key */
+// Get and set a new joystick key
 u16 get_set_joy_key(int index) {
   BOOL done = FALSE;
   SDL_Event event;
   u16 key = joypad_cfg[index];
 
-  /* Enable joystick events if needed */
+  // Enable joystick events if needed
   if( SDL_JoystickEventState(SDL_QUERY) == SDL_IGNORE )
     SDL_JoystickEventState(SDL_ENABLE);
 
@@ -1114,7 +1102,7 @@ u16 get_set_joy_key(int index) {
   return key;
 }
 
-/* Reset corresponding key and its twin axis key */
+// Reset corresponding key and its twin axis key
 u16 get_joy_axis_twin(u16 key)
 {
   switch(key)
@@ -1213,7 +1201,7 @@ do_process_joystick_events( u16 *keypad, SDL_Event *event) {
 
   switch ( event->type)
     {
-      /* Joystick axis motion 
+      /* Joystick axis motion
          Note: button constants have a 1bit offset. */
     case SDL_JOYAXISMOTION:
       key = lookup_joy_key( JOY_AXIS_(event->jaxis.axis) );
@@ -1223,15 +1211,15 @@ do_process_joystick_events( u16 *keypad, SDL_Event *event) {
       if( event->jaxis.value == 0 )
         RM_KEY( *keypad, key | get_joy_axis_twin(key) );
       /* Key should have been down but its currently set to up? */
-      else if( (event->jaxis.value > 0) && 
+      else if( (event->jaxis.value > 0) &&
                (key == KEYMASK_( KEY_UP-1 )) )
         key = KEYMASK_( KEY_DOWN-1 );
       /* Key should have been left but its currently set to right? */
-      else if( (event->jaxis.value < 0) && 
+      else if( (event->jaxis.value < 0) &&
                (key == KEYMASK_( KEY_RIGHT-1 )) )
         key = KEYMASK_( KEY_LEFT-1 );
-              
-      /* Remove some sensitivity before checking if different than zero... 
+
+      /* Remove some sensitivity before checking if different than zero...
          Fixes some badly behaving joypads [like one of mine]. */
       if( (event->jaxis.value >> 5) != 0 )
         ADD_KEY( *keypad, key );
@@ -1265,37 +1253,37 @@ void
 process_joystick_events( u16 *keypad) {
   SDL_Event event;
 
-  /* IMPORTANT: Reenable joystick events iif needed. */
+  // IMPORTANT: Reenable joystick events if needed.
   if(SDL_JoystickEventState(SDL_QUERY) == SDL_IGNORE)
     SDL_JoystickEventState(SDL_ENABLE);
 
-  /* There's an event waiting to be processed? */
+  // There's an event waiting to be processed?
   while (SDL_PollEvent(&event))
     {
       do_process_joystick_events( keypad, &event);
     }
 }
 
-/* Manage input events */
+// Manage input events
 int
 process_ctrls_events( u16 *keypad,
                       void (*external_videoResizeFn)( u16 width, u16 height),
                       float nds_screen_size_ratio)
 {
-  
+
 //HCF
   int i, iMouseCambiado;
   signed short x, y;
   unsigned short key;
 
   int cause_quit = 0;
-  
+
   //HCF Botones
   vdRellenaBotones();
-  for(i=0;i<12;i++) 
+  for(i=0;i<12;i++)
   {
 	//HCF De momento solo horizontal
-	/****	
+	/****
 	if(vertical)
 	{
 		if (ashBotones[default_xb_cfg_v[i]])
@@ -1313,16 +1301,16 @@ process_ctrls_events( u16 *keypad,
 		else
 			RM_KEY( *keypad, KEYMASK_(i));
 	/***}****/
-  }   
+  }
 
   //HCF Movimiento del puntero
 		x = SDL_JoystickGetAxis(GAMEPAD, 0),
 		y = SDL_JoystickGetAxis(GAMEPAD, 1);
-	
+
 		iMouseCambiado = 0;
 		if (x > 16384)
 		{
-			
+
 			if( mouse.x < 256 - iMouseSpeed )
 			{
 				mouse.x += iMouseSpeed;
@@ -1331,7 +1319,7 @@ process_ctrls_events( u16 *keypad,
 		}
 		if (x < -16384)
 		{
-			
+
 			if( mouse.x >= iMouseSpeed )
 			{
 				mouse.x -= iMouseSpeed;
@@ -1386,7 +1374,7 @@ process_ctrls_events( u16 *keypad,
 	//HCF Movimiento del puntero
 
 	//HCF Click o Drag and drop
-	if (ashBotones[BOTON_BLANCO]) 
+	if (ashBotones[BOTON_BLANCO])
 	{
 		mouse.down = TRUE;
 	}
@@ -1395,7 +1383,7 @@ process_ctrls_events( u16 *keypad,
 		if(mouse.down == TRUE)
 		{
 			mouse.click = TRUE;
-			mouse.down = FALSE;	
+			mouse.down = FALSE;
 		}
 		else
 		{
@@ -1405,7 +1393,7 @@ process_ctrls_events( u16 *keypad,
 	//HCF Click o Drag and drop
 
 	//HCF Toggle graphical mode
-	if (ashBotones[BOTON_NEGRO]) 
+	if (ashBotones[BOTON_NEGRO])
 	{
 		if( !iCambiandoModoGrafico )
 		{
@@ -1445,7 +1433,7 @@ process_ctrls_events( u16 *keypad,
 	}
 
 	//HCF Toggle stretch mode
-	if (ashBotones[BOTON_RTHUMBSTICK]) 
+	if (ashBotones[BOTON_RTHUMBSTICK])
 	{
 		if( !iCambiandoModoStretch )
 		{
@@ -1479,43 +1467,43 @@ process_ctrls_events( u16 *keypad,
 
   //HCF Puntero
   /*
-  if (ashBotones[BOTON_BLANCO]) 
+  if (ashBotones[BOTON_BLANCO])
   //else
   {
-	  if (ashBotones[BOTON_NEGRO]) 
+	  if (ashBotones[BOTON_NEGRO])
 	  {
 		  //Si esta pulsando y clickando (drag and drop)
 	  	  mouse.down = TRUE;
 	  }
-	  
+
 	  //HCF De momento usamos arriba y abajo en PAD... ver si usar JOY/PAD o solo JOY...
 	  if (ashBotones[BOTON_IZQUIERDA])
 	  {
 		//--mouse.x;
 		mouse.x -= MOUSE_SPEED;
-	  } 
+	  }
 	  if (ashBotones[BOTON_DERECHA])
 	  {
 		//++mouse.x;
 		mouse.x += MOUSE_SPEED;
-	  } 
+	  }
       if (ashBotones[BOTON_ARRIBA])
 	  {
 		//--mouse.y;
 		mouse.y -= MOUSE_SPEED;
-	  } 
+	  }
 	  if (ashBotones[BOTON_ABAJO])
 	  {
 		//++mouse.y;
 		mouse.y += MOUSE_SPEED;
 	  }
-		 
+
 	  SDL_WarpMouse(mouse.x, mouse.y);
       set_mouse_coord( mouse.x, mouse.y );
   }
   else
   {
-	if (ashBotones[BOTON_NEGRO] ) 
+	if (ashBotones[BOTON_NEGRO] )
   	{
 		//Click sin arrastrar
 		 mouse.click = TRUE;
@@ -1529,16 +1517,16 @@ process_ctrls_events( u16 *keypad,
       vdXBOptionsMenu(0);
 
   //HCF Salir
-  if (ashBotones[BOTON_START] && ashBotones[BOTON_BACK]) 
+  if (ashBotones[BOTON_START] && ashBotones[BOTON_BACK])
   	cause_quit = 1;
-  
+
   /*************
   #ifdef __psp__
 	  SceCtrlData pad;
 	  sceCtrlSetSamplingCycle(0);
 	  sceCtrlSetSamplingMode(PSP_CTRL_MODE_ANALOG);
-	  sceCtrlPeekBufferPositive(&pad, 1); 
-	  
+	  sceCtrlPeekBufferPositive(&pad, 1);
+
 	  int i;
 	  for(i=0;i<12;i++) {
 	if(vertical){
@@ -1552,9 +1540,9 @@ process_ctrls_events( u16 *keypad,
 		else
 			RM_KEY( *keypad, KEYMASK_(i));
 	  }
-	  }    
+	  }
 	  if (pad.Buttons & PSP_CTRL_NOTE) {
-	  
+
 	  		mouse.click = TRUE;
 			mouse.down = FALSE;
 	  }
@@ -1564,16 +1552,16 @@ process_ctrls_events( u16 *keypad,
 		  if(vertical){
           if (pad.Ly < 10){
 			--mouse.x;
-		  } 
-			
+		  }
+
 		  if (pad.Ly > 245){
 			++mouse.x;
-		  } 
-		  
+		  }
+
 		  if (pad.Lx < 10) {
 			++mouse.y;
-		  } 
-		
+		  }
+
 		  if (pad.Lx > 245){
 			--mouse.y;
 		  }
@@ -1581,16 +1569,16 @@ process_ctrls_events( u16 *keypad,
 
 		  if (pad.Lx < 10){
 			--mouse.x;
-		  } 
-			
+		  }
+
 		  if (pad.Lx > 245){
 			++mouse.x;
-		  } 
-		  
+		  }
+
 		  if (pad.Ly < 10) {
 			--mouse.y;
-		  } 
-		
+		  }
+
 		  if (pad.Ly > 245){
 			++mouse.y;
 		  }
@@ -1602,7 +1590,7 @@ process_ctrls_events( u16 *keypad,
 				  signed long scaled_y =
 					screen_to_touch_range_y( event.button.y,
 											 nds_screen_size_ratio);
-	
+
 				  if( scaled_y >= 192)
 					set_mouse_coord( scaled_x, scaled_y - 192);
 				}
@@ -1610,14 +1598,14 @@ process_ctrls_events( u16 *keypad,
         //  SDL_WarpMouse(mouse.x, mouse.y);
 		  set_mouse_coord( mouse.x, mouse.y );
 	  }
-	    
-  #else		
+
+  #else
 	  SDL_Event event;
-	  
+
 	  // IMPORTANT: Reenable joystick events if needed
 	  if(SDL_JoystickEventState(SDL_QUERY) == SDL_IGNORE)
 		SDL_JoystickEventState(SDL_ENABLE);
-	
+
 	  // There's an event waiting to be processed?
 	  while (SDL_PollEvent(&event))
 		{
@@ -1629,21 +1617,21 @@ process_ctrls_events( u16 *keypad,
 				  external_videoResizeFn( event.resize.w, event.resize.h);
 				}
 				break;
-	
+
 			  case SDL_KEYDOWN:
 				key = lookup_key(event.key.keysym.sym);
 				ADD_KEY( *keypad, key );
 				break;
-	
+
 			  case SDL_KEYUP:
 				key = lookup_key(event.key.keysym.sym);
 				RM_KEY( *keypad, key );
 				break;
-	
+
 			  case SDL_MOUSEBUTTONDOWN:
 				if(event.button.button==1)
 				  mouse.down = TRUE;
-							
+
 			  case SDL_MOUSEMOTION:
 				if(!mouse.down)
 				  break;
@@ -1654,21 +1642,21 @@ process_ctrls_events( u16 *keypad,
 				  signed long scaled_y =
 					screen_to_touch_range_y( event.button.y,
 											 nds_screen_size_ratio);
-	
+
 				  if( scaled_y >= 192)
 					set_mouse_coord( scaled_x, scaled_y - 192);
 				}
 				break;
-	
+
 			  case SDL_MOUSEBUTTONUP:
 				if(mouse.down) mouse.click = TRUE;
 				mouse.down = FALSE;
 				break;
-	
+
 			  case SDL_QUIT:
 				cause_quit = 1;
 				break;
-	
+
 			  default:
 				break;
 			  }
@@ -1679,4 +1667,3 @@ process_ctrls_events( u16 *keypad,
 
   return cause_quit;
 }
-

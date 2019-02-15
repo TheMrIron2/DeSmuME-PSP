@@ -1,0 +1,9 @@
+# Object files
+*.o
+*.elf
+
+# Binarys
+*.PBP
+
+# Mac OS index files
+.DS_Store
