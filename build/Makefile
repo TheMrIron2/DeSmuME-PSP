@@ -3,7 +3,7 @@ TARGET = DesmumePSP
 MESS=1
 LSB_FIRST=1
 SRCDIR = ../source
-	
+
 OBJS = $(SRCDIR)/arm_instructions.o \
 $(SRCDIR)/armcpu.o \
 $(SRCDIR)/bios.o \
@@ -93,9 +93,9 @@ emu/machine/%.o: %.c
 
 emu/%.o: %.c
 			$(CXX) $< -o $@
-            
+
 #ESTO NO HACE FALTA: SOLO RENOMBRAR A CPP!!!
-           
+
 PSPSDK = $(shell psp-config --pspsdk-path)
 PSPDEV = $(shell psp-config -d)
 SDL_CONFIG = /usr/local/pspdev/psp/bin/sdl-config
@@ -111,20 +111,15 @@ CXXFLAGS = $(CFLAGS) -fno-exceptions
 
 ASFLAGS = $(CFLAGS)
 
-LIBS= -lpthread-psp -lSDLmain -lSMPEG -lSDL -lSDL_ttf -lSDL_image -lpspirkeyb -lpspwlan -lpsppower -lGL -lfreetype -ljpeg -lpng -lz -lm -lSDL -lpspgu -lpsphprm -lpspaudio -lstdc++ -lpspvfpu -lpsprtc -lSMPEG -lvorbisidec $( shell $( SDL_CONFIG ) --libs )
-LIBS += -lpspaudiolib -lpspaudio -lpsppower 
-LIBS += -lSDL_Mixer -lSMPEG -lSDL -lSDL_ttf -lvorbisidec -logg -lstdc++ 
+LIBS= -lpthread-psp -lSDLmain -lSDL -lSDL_ttf -lSDL_image -lpspirkeyb -lpspwlan -lpsppower -lGL -lfreetype -ljpeg -lpng -lz -lm -lSDL -lpspgu -lpsphprm -lpspaudio -lstdc++ -lpspvfpu -lpsprtc -lvorbisidec $( shell $( SDL_CONFIG ) --libs )
+LIBS += -lpspaudiolib -lpspaudio -lpsppower
+LIBS += -lSDL -lSDL_ttf -lvorbisidec -logg -lstdc++
 
 EXTRA_TARGETS = EBOOT.PBP
 PSP_EBOOT_TITLE = Desmume
 
 include $(PSPSDK)/lib/build.mak
 
-PSP_EBOOT_ICON = ICON0.png
-PSP_EBOOT_PIC1 = PIC1.png
+#PSP_EBOOT_ICON = ICON0.png
+#PSP_EBOOT_PIC1 = PIC1.png
 #PSP_EBOOT_SND0 = SND0.at3
-
-
-
-
-    

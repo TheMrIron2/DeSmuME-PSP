@@ -1,4 +1,4 @@
-/*	
+/*
 	Copyright (C) 2009-2015 DeSmuME Team
 
 	This file is free software: you can redistribute it and/or modify
@@ -14,6 +14,7 @@
 	You should have received a copy of the GNU General Public License
 	along with the this software.  If not, see <http://www.gnu.org/licenses/>.
 */
+#include <string>
 
 #include "firmware.h"
 
@@ -48,7 +49,7 @@ u16 CFIRMWARE::getBootCodeCRC16()
 	{
 		crc = (crc ^ tmp_data9[i]);
 
-		for(j = 0; j < 8; j++) 
+		for(j = 0; j < 8; j++)
 		{
 			if(crc & 0x0001)
 				crc = ((crc >> 1) ^ (val[j] << (7-j)));
@@ -61,7 +62,7 @@ u16 CFIRMWARE::getBootCodeCRC16()
 	{
 		crc = (crc ^ tmp_data7[i]);
 
-		for(j = 0; j < 8; j++) 
+		for(j = 0; j < 8; j++)
 		{
 			if(crc & 0x0001)
 				crc = ((crc >> 1) ^ (val[j] << (7-j)));
@@ -159,7 +160,7 @@ u32 CFIRMWARE::decrypt(const u8 *in, u8* &out)
 			d = ((d << 1) & 0xFF);
 		}
 	}
-	
+
 	return (blockSize);
 }
 
@@ -244,7 +245,7 @@ u32 CFIRMWARE::decompress(const u8 *in, u8* &out)
 			d = ((d << 1) & 0xFF);
 		}
 	}
-	
+
 	return (blockSize);
 }
 //================================================================================
@@ -252,12 +253,12 @@ bool CFIRMWARE::load()
 {
 	u32 size = 0;
 	u8	*data = NULL;
-	
+
 	if (CommonSettings.UseExtFirmware == false)
 		return false;
 	if (strlen(CommonSettings.Firmware) == 0)
 		return false;
-	
+
 	FILE	*fp = fopen(CommonSettings.Firmware, "rb");
 	if (!fp)
 		return false;
@@ -282,7 +283,7 @@ bool CFIRMWARE::load()
 		delete [] data;
 		data = NULL;
 		fclose(fp);
-		return false; 
+		return false;
 	}
 
 	memcpy(&header, data, sizeof(header));
@@ -348,7 +349,7 @@ bool CFIRMWARE::unpack()
 	shift3 = ((header.shift_amounts >> 6) & 0x07);
 	shift4 = ((header.shift_amounts >> 9) & 0x07);
 
-	// todo - add support for 512Kb 
+	// todo - add support for 512Kb
 	part1addr = (header.part1_rom_boot9_addr << (2 + shift1));
 	part1ram = (0x02800000 - (header.part1_ram_boot9_addr << (2+shift2)));
 	part2addr = (header.part2_rom_boot7_addr << (2+shift3));
@@ -457,7 +458,7 @@ bool CFIRMWARE::unpack()
 		shift3 = ((header.shift_amounts >> 6) & 0x07);
 		shift4 = ((header.shift_amounts >> 9) & 0x07);
 
-		// todo - add support for 512Kb 
+		// todo - add support for 512Kb
 		part1addr = (header.part1_rom_boot9_addr << (2 + shift1));
 		part1ram = (0x02800000 - (header.part1_ram_boot9_addr << (2+shift2)));
 		part2addr = (header.part2_rom_boot7_addr << (2+shift3));
@@ -467,7 +468,7 @@ bool CFIRMWARE::unpack()
 		ARM7bootAddr = part2ram;
 
 		size9 = decompress(data + part1addr, tmp_data9);
-		if (!tmp_data9) 
+		if (!tmp_data9)
 		{
 			delete [] data;
 			return false;
@@ -577,7 +578,7 @@ bool CFIRMWARE::saveSettings()
 		// copy User Settings 0 to User Settings 1 area
 		memcpy(data + 0x100, data, 0x100);
 	}
-	
+
 	//printf("Firmware: saving config");
 	FILE *fp = fopen(MMU.fw.userfile, "wb");
 	if (fp)
@@ -1028,7 +1029,7 @@ u8 fw_transfer(fw_memory_chip *mc, u8 data)
 						mc->addr++;      /* then increment address */
 					}
 					break;
-					
+
 				case FW_CMD_PAGEWRITE:
 					if(mc->addr < mc->size)
 					{
@@ -1037,7 +1038,7 @@ u8 fw_transfer(fw_memory_chip *mc, u8 data)
 					}
 					break;
 			}
-			
+
 		}
 	}
 	else if(mc->com == FW_CMD_READ_ID)
@@ -1047,17 +1048,17 @@ u8 fw_transfer(fw_memory_chip *mc, u8 data)
 		//here is an ID string measured from an old ds fat: 62 16 00 (0x62=sanyo)
 		//but we chose to use an ST from martin's ds fat string so programs might have a clue as to the firmware size:
 		//20 40 12
-		case 0: 
+		case 0:
 			data = 0x20;
-			mc->addr=1; 
+			mc->addr=1;
 			break;
-		case 1: 
+		case 1:
 			data = 0x40; //according to gbatek this is the device ID for the flash on someone's ds fat
-			mc->addr=2; 
+			mc->addr=2;
 			break;
-		case 2: 
+		case 2:
 			data = 0x12;
-			mc->addr = 0; 
+			mc->addr = 0;
 			break;
 		}
 	}
@@ -1075,21 +1076,21 @@ u8 fw_transfer(fw_memory_chip *mc, u8 data)
 				mc->addr = 0;
 				mc->com = FW_CMD_READ_ID;
 				break;
-			
+
 			case FW_CMD_READ:    //read command
 				mc->addr = 0;
 				mc->addr_shift = 3;
 				mc->com = FW_CMD_READ;
 				break;
-				
+
 			case FW_CMD_WRITEENABLE:     //enable writing
 				if(mc->writeable_buffer) { mc->write_enable = TRUE; }
 				break;
-				
+
 			case FW_CMD_WRITEDISABLE:    //disable writing
 				mc->write_enable = FALSE;
 				break;
-				
+
 			case FW_CMD_PAGEWRITE:       //write command
 				if(mc->write_enable)
 				{
@@ -1099,19 +1100,19 @@ u8 fw_transfer(fw_memory_chip *mc, u8 data)
 				}
 				else { data = 0; }
 				break;
-			
+
 			case FW_CMD_READSTATUS:  //status register command
 				mc->com = FW_CMD_READSTATUS;
 				break;
-				
+
 			default:
 				//printf("Unhandled FW command: %02X\n", data);
 				break;
 		}
 	}
-	
+
 	return data;
-}	
+}
 
 
 void mc_init(fw_memory_chip *mc, int type)

@@ -23,18 +23,18 @@
 
 	#include <winsock2.h>
 	#include <ws2tcpip.h>
-	#define socket_t    SOCKET 	 
+	#define socket_t    SOCKET
 	#define sockaddr_t  SOCKADDR
 	//#include "windriver.h"
 	#define PCAP_DEVICE_NAME description
 
 #else
 	#include <unistd.h>
-	#include <stdlib.h> 	 
-	#include <string.h> 	 
-	#include <arpa/inet.h> 	 
-	#include <sys/socket.h> 	 
-	#define socket_t    int 	 
+	#include <stdlib.h>
+	#include <string.h>
+	#include <arpa/inet.h>
+	#include <sys/socket.h>
+	#define socket_t    int
 	#define sockaddr_t  struct sockaddr
 	#define closesocket close
 	#define PCAP_DEVICE_NAME name
@@ -50,9 +50,9 @@
 #include "bits.h"
 #include "registers.h"
 
-#ifndef INVALID_SOCKET 	 
-	#define INVALID_SOCKET  (socket_t)-1 	 
-#endif 
+#ifndef INVALID_SOCKET
+	#define INVALID_SOCKET  (socket_t)-1
+#endif
 
 #define BASEPORT 7000
 
@@ -148,17 +148,17 @@ const u8 FW_RFInit[36] 		= { 0x07, 0xC0, 0x00,
 							0x6f, 0xff, 0x0d
 						  };
 const u8 FW_RFChannel[6*14]	= { 0x28, 0x17, 0x14,		/* Channel 1 */
-							0xba, 0xe8, 0x1a,		
+							0xba, 0xe8, 0x1a,
 							0x37, 0x17, 0x14,		/* Channel 2 */
-							0x46, 0x17, 0x19,		
+							0x46, 0x17, 0x19,
 							0x45, 0x17, 0x14,		/* Channel 3 */
-							0xd1, 0x45, 0x1b,		
+							0xd1, 0x45, 0x1b,
 							0x54, 0x17, 0x14,		/* Channel 4 */
-							0x5d, 0x74, 0x19,		
+							0x5d, 0x74, 0x19,
 							0x62, 0x17, 0x14,		/* Channel 5 */
-							0xe9, 0xa2, 0x1b,		
+							0xe9, 0xa2, 0x1b,
 							0x71, 0x17, 0x14,		/* Channel 6 */
-							0x74, 0xd1, 0x19,		
+							0x74, 0xd1, 0x19,
 							0x80, 0x17, 0x14,		/* Channel 7 */
 							0x00, 0x00, 0x18,
 							0x8e, 0x17, 0x14,		/* Channel 8 */
@@ -177,7 +177,7 @@ const u8 FW_RFChannel[6*14]	= { 0x28, 0x17, 0x14,		/* Channel 1 */
 							0x2f, 0xba, 0x18
 						  };
 const u8 FW_BBChannel[14]		= { 0xb3, 0xb3, 0xb3, 0xb3, 0xb3,	/* channel  1- 6 */
-							0xb4, 0xb4, 0xb4, 0xb4, 0xb4,	/* channel  7-10 */ 
+							0xb4, 0xb4, 0xb4, 0xb4, 0xb4,	/* channel  7-10 */
 							0xb5, 0xb5,						/* channel 11-12 */
 							0xb6, 0xb6						/* channel 13-14 */
 						  };
@@ -319,7 +319,7 @@ WifiComInterface* wifiCom;
 	#if WIFI_LOG_USE_LOGC
 		#define WIFI_LOG(level, ...) if(level <= WIFI_LOGGING_LEVEL) LOGC(8, "WIFI: "__VA_ARGS__);
 	#else
-		#define WIFI_LOG(level, ...) if(level <= WIFI_LOGGING_LEVEL) printf("WIFI: "__VA_ARGS__);
+		#define WIFI_LOG(level, ...) if(level <= WIFI_LOGGING_LEVEL) //printf("WIFI: "__VA_ARGS__);
 	#endif
 #else
 #define WIFI_LOG(level, ...) {}
@@ -332,7 +332,7 @@ WifiComInterface* wifiCom;
  *******************************************************************************/
 
 // TODO: find the right value
-// GBAtek says it is 10µs, however that value seems too small
+// GBAtek says it is 10ï¿½s, however that value seems too small
 // (MP host sends floods of data frames, clients can't keep up)
 // 100 would make more sense since CMDCOUNT is set to 166
 // that would be 16.6ms ~= 1 frame
@@ -380,8 +380,8 @@ static u32 reflect(u32 ref, char ch)
         if (ref & 1)
             value |= 1 << (ch - i);
         ref >>= 1;
-    } 
-	
+    }
+
 	return value;
 }
 
@@ -418,7 +418,7 @@ static void WIFI_initCRC32Table()
 
  *******************************************************************************/
 
-static void WIFI_resetRF(rffilter_t *rf) 
+static void WIFI_resetRF(rffilter_t *rf)
 {
 	/* reinitialize RF chip with the default values refer RF2958 docs */
 	/* CFG1 */
@@ -685,7 +685,7 @@ void WIFI_Reset()
 	wifiMac.powerOnPending = FALSE;
 
 	wifiMac.GlobalUsecTimer = wifiMac.usec = wifiMac.ucmp = 0ULL;
-	
+
 	//wifiMac.rfStatus = 0x0000;
 	//wifiMac.rfPins = 0x0004;
 	wifiMac.rfStatus = 0x0009;
@@ -793,11 +793,11 @@ static void WIFI_RXPutWord(u16 val)
 	wifiMac.RAM[wifiMac.RXWriteCursor & 0xFFF] = val;
 	/* move cursor by one */
 	wifiMac.RXWriteCursor++;
-	
+
 	/* wrap around */
 	if(wifiMac.RXWriteCursor >= (wifiMac.RXRangeEnd >> 1))
 		wifiMac.RXWriteCursor = (wifiMac.RXRangeBegin >> 1);
-	
+
 	wifiMac.RXTXAddr = wifiMac.RXWriteCursor;
 }
 
@@ -890,7 +890,7 @@ static void WIFI_DoAutoReply(u8* cmd)
 static void WIFI_TXStart(u32 slot)
 {
 	/*
-	WIFI_LOG(4, "TX slot %i trying to send a packet: TXCnt = %04X, TXBufLoc = %04X\n", 
+	WIFI_LOG(4, "TX slot %i trying to send a packet: TXCnt = %04X, TXBufLoc = %04X\n",
 		slot, wifiMac.TXCnt, wifiMac.TXSlots[slot].RegVal);
 	*/
 
@@ -901,7 +901,7 @@ static void WIFI_TXStart(u32 slot)
 		if (address > 0x1000-6)
 		{
 			/*
-			WIFI_LOG(1, "TX slot %i trying to send a packet overflowing from the TX buffer (address %04X). Attempt ignored.\n", 
+			WIFI_LOG(1, "TX slot %i trying to send a packet overflowing from the TX buffer (address %04X). Attempt ignored.\n",
 				slot, (address << 1));
 			*/
 			return;
@@ -911,14 +911,14 @@ static void WIFI_TXStart(u32 slot)
 		if (txLen == 0) // zero length
 		{
 			/*
-			WIFI_LOG(1, "TX slot %i trying to send a packet with length field set to zero. Attempt ignored.\n", 
+			WIFI_LOG(1, "TX slot %i trying to send a packet with length field set to zero. Attempt ignored.\n",
 				slot);
 			*/
 			return;
 		}
 
 		u32 timemask = ((wifiMac.RAM[address+4] & 0xFF) == 20) ? 7 : 15;
-		
+
 		wifiMac.TXSlots[slot].CurAddr = address + 6;
 		wifiMac.TXSlots[slot].RemHWords = (txLen + 1) >> 1;
 		wifiMac.TXSlots[slot].RemPreamble = (BIT2(WIFI_IOREG(REG_WIFI_PREAMBLE)) && (timemask == 7)) ? 96 : 192;
@@ -992,8 +992,8 @@ void WIFI_write16(u32 address, u16 val)
 	{
 		/* access to the circular buffer */
 		address &= 0x1FFF;
-		/*if (address >= 0x958 && address < (0x95A)) //address < (0x958+0x2A)) 
-			printf("PACKET[%04X] = %04X %08X %08X\n", 
+		/*if (address >= 0x958 && address < (0x95A)) //address < (0x958+0x2A))
+			printf("PACKET[%04X] = %04X %08X %08X\n",
 			NDS_ARM7.R[12], val, NDS_ARM7.R[14], NDS_ARM7.R[5]);*/
         wifiMac.RAM[address >> 1] = val;
 		return;
@@ -1188,7 +1188,7 @@ void WIFI_write16(u32 address, u16 val)
 		case REG_WIFI_TXBUF_BEACON:
 			wifiMac.TXSlots[WIFI_TXSLOT_BEACON].RegVal = val;
 			/**
-			if (BIT15(val)) 
+			if (BIT15(val))
 				WIFI_LOG(3, "Beacon transmission enabled to send the packet at %08X every %i milliseconds.\n",
 					0x04804000 + ((val & 0x0FFF) << 1), wifiMac.BeaconInterval);
 			**/
@@ -1294,7 +1294,7 @@ void WIFI_write16(u32 address, u16 val)
 			wifiMac.eCountEnable = BIT0(val);
 			break;
 		case REG_WIFI_EXTRACOUNT:
-			//WIFI_LOG(3, "EXTRACOUNT=%i (%i µs)\n", val, val*WIFI_CMDCOUNT_SLICE);
+			//WIFI_LOG(3, "EXTRACOUNT=%i (%i ï¿½s)\n", val, val*WIFI_CMDCOUNT_SLICE);
 			wifiMac.eCount = (u32)val * WIFI_CMDCOUNT_SLICE;
 			break;
 		case REG_WIFI_LISTENINT:
@@ -1439,10 +1439,10 @@ u16 WIFI_read16(u32 address)
 				{
 					wifiMac.CircBufReadAddress += 2;
 
-					if (wifiMac.CircBufReadAddress >= wifiMac.RXRangeEnd) 
-					{ 
+					if (wifiMac.CircBufReadAddress >= wifiMac.RXRangeEnd)
+					{
 						wifiMac.CircBufReadAddress = wifiMac.RXRangeBegin;
-					} 
+					}
 					else
 					{
 						/* skip does not fire after a reset */
@@ -1461,7 +1461,7 @@ u16 WIFI_read16(u32 address)
 							WIFI_triggerIRQ(WIFI_IRQ_RXCOUNTEXP);
 						}
 						wifiMac.RXBufCount--;
-					}				
+					}
 				}
 				return val;
 			}
@@ -1685,7 +1685,7 @@ void WIFI_usTrigger()
 
 					slot.RegVal &= 0x7FFF;
 				}
-				
+
 				u16 addr = slot.RegVal & 0x0FFF;
 				wifiMac.RAM[addr] = 0x0001;
 				wifiMac.RAM[addr+4] &= 0x00FF;
@@ -1813,7 +1813,7 @@ bool Adhoc_Init()
 	// Bind the socket to any address on port 7000
 	sockaddr_t saddr;
 	saddr.sa_family = AF_INET;
-	*(u32*)&saddr.sa_data[2] = htonl(INADDR_ANY); 
+	*(u32*)&saddr.sa_data[2] = htonl(INADDR_ANY);
 	*(u16*)&saddr.sa_data[0] = htons(BASEPORT);
 	res = bind(wifi_socket, &saddr, sizeof(sockaddr_t));
 	if (res < 0)
@@ -1835,7 +1835,7 @@ bool Adhoc_Init()
 
 	// Prepare an address structure for sending packets
 	sendAddr.sa_family = AF_INET;
-	*(u32*)&sendAddr.sa_data[2] = htonl(INADDR_BROADCAST); 
+	*(u32*)&sendAddr.sa_data[2] = htonl(INADDR_BROADCAST);
 	*(u16*)&sendAddr.sa_data[0] = htons(BASEPORT);
 
 	Adhoc_Reset();
@@ -1884,7 +1884,7 @@ void Adhoc_SendPacket(u8* packet, u32 len)
 	memcpy(ptr, packet, len);
 
 	int nbytes = sendto(wifi_socket, (const char*)frame, frameLen, 0, &sendAddr, sizeof(sockaddr_t));
-	
+
 	//WIFI_LOG(4, "Ad-hoc: sent %i/%i bytes of packet.\n", nbytes, frameLen);
 
 	delete[] frame;
@@ -1901,7 +1901,7 @@ void Adhoc_msTrigger()
 
 	FD_ZERO(&fd);
 	FD_SET(wifi_socket, &fd);
-	tv.tv_sec = 0; 
+	tv.tv_sec = 0;
 	tv.tv_usec = 0;
 
 	if (select(1, &fd, 0, 0, &tv))
@@ -1920,7 +1920,7 @@ void Adhoc_msTrigger()
 
 		ptr = buf;
 		Adhoc_FrameHeader header = *(Adhoc_FrameHeader*)ptr;
-		
+
 		// Check the magic string in header
 		if (strncmp(header.magic, ADHOC_MAGIC, 8))
 			return;
@@ -1941,7 +1941,7 @@ void Adhoc_msTrigger()
 			{
 			/*	WIFI_LOG(3, "Ad-hoc: received a packet of %i bytes from %i.%i.%i.%i (port %i).\n",
 					nbytes,
-					(u8)fromAddr.sa_data[2], (u8)fromAddr.sa_data[3], 
+					(u8)fromAddr.sa_data[2], (u8)fromAddr.sa_data[3],
 					(u8)fromAddr.sa_data[4], (u8)fromAddr.sa_data[5],
 					ntohs(*(u16*)&fromAddr.sa_data[0]));*/
 				/*
@@ -2067,7 +2067,7 @@ static pcap_if_t * WIFI_index_device(pcap_if_t *alldevs, int index)
 
 	for(int i = 0; i < index; i++)
 	{
-		if (curr->next == NULL) 
+		if (curr->next == NULL)
 		{
 			CommonSettings.wifi.infraBridgeAdapter = i;
 			break;
@@ -2088,7 +2088,7 @@ bool SoftAP_Init()
 		wifi_bridge = NULL;
 		return false;
 	}
-	
+
 	char errbuf[PCAP_ERRBUF_SIZE];
 	pcap_if_t *alldevs;
 	int ret = 0;
@@ -2143,7 +2143,7 @@ static bool SoftAP_IsDNSRequestToWFC(u16 ethertype, u8* body)
 	if (body[9] != 0x11) return false;					// Protocol: UDP
 	if (ntohs(*(u16*)&body[22]) != 53) return false;	// Dest. port: 53 (DNS)
 	if (htons(ntohs(*(u16*)&body[28+2])) & 0x8000) return false;	// must be a query
-	
+
 	// Analyze each question
 	u16 numquestions = ntohs(*(u16*)&body[28+4]);
 	u32 curoffset = 28+12;
@@ -2154,7 +2154,7 @@ static bool SoftAP_IsDNSRequestToWFC(u16 ethertype, u8* body)
 		while ((bitlength = body[curoffset++]) != 0)
 		{
 			strncat(domainname, (const char*)&body[curoffset], bitlength);
-			
+
 			curoffset += bitlength;
 			if (body[curoffset] != 0)
 				strcat(domainname, ".");
@@ -2164,7 +2164,7 @@ static bool SoftAP_IsDNSRequestToWFC(u16 ethertype, u8* body)
 		// it is most likely a WFC server
 		// (note, conntest.nintendowifi.net just contains a dummy HTML page and
 		// is used for connection tests, I think we can let this one slide)
-		if ((strstr(domainname, "nintendowifi.net") != NULL) && 
+		if ((strstr(domainname, "nintendowifi.net") != NULL) &&
 			(strcmp(domainname, "conntest.nintendowifi.net") != 0))
 			return true;
 
@@ -2404,4 +2404,3 @@ void SoftAP_msTrigger()
 }
 
 #endif
-

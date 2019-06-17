@@ -62,7 +62,7 @@
 //
 ////////////////////////////////////////////////////////////////
 
-FORCEINLINE bool USE_TIMING() { 
+FORCEINLINE bool USE_TIMING() {
 #ifdef ENABLE_ADVANCED_TIMING
 	return CommonSettings.advanced_timing;
 #else
@@ -93,18 +93,18 @@ public:
 		else
 			return this->CachedInternal<DIR>(addr, blockMasked);
 	}
-	
+
 	void Reset()
 	{
 		for(int blockIndex = 0; blockIndex < NUMBLOCKS; blockIndex++)
 			m_blocks[blockIndex].Reset();
-		m_cacheCache = ~0;
+		m_cacheCache = (~((u32)(0)));
 	}
 	CacheController()
 	{
 		Reset();
 	}
-	
+
 	void savestate(EMUFILE* os, int version)
 	{
 		write32le(m_cacheCache, os);
@@ -156,8 +156,8 @@ private:
 	enum { ASSOCIATIVITY = 1 << ASSOCIATIVESHIFT };
 	enum { BLOCKSIZE = 1 << BLOCKSIZESHIFT };
 	enum { TAGSHIFT = SIZESHIFT - ASSOCIATIVESHIFT };
-	enum { TAGMASK = (u32)(~0 << TAGSHIFT) };
-	enum { BLOCKMASK = ((u32)~0 >> (32 - TAGSHIFT)) & (u32)(~0 << BLOCKSIZESHIFT) };
+	enum { TAGMASK = (u32)((~((u32)(0))) << TAGSHIFT) };
+	enum { BLOCKMASK = ((u32)(~((u32)(0))) >> (32 - TAGSHIFT)) & (u32)((~((u32)(0))) << BLOCKSIZESHIFT) };
 	enum { WORDSIZE = sizeof(u32) };
 	enum { WORDSPERBLOCK = (1 << BLOCKSIZESHIFT) / WORDSIZE };
 	enum { DATAPERWORD = WORDSIZE * ASSOCIATIVITY };
@@ -199,7 +199,7 @@ public:
 		#else
 		const bool prohibit = false;
 		#endif
-		
+
 		if(AT == MMU_AT_CODE && !prohibit)
 		{
 			return 1;
@@ -225,7 +225,7 @@ public:
 
 	void Reset()
 	{
-		m_lastAddress = ~0;
+		m_lastAddress = (~((u32)(0)));
 	}
 	FetchAccessUnit() { this->Reset(); }
 
@@ -289,7 +289,7 @@ FORCEINLINE u32 _MMU_accesstime(u32 addr, bool sequential)
 		return MC; // ITCM
 
 #ifdef ACCOUNT_FOR_DATA_TCM_SPEED
-	if(TIMING && PROCNUM==ARMCPU_ARM9 && AT==MMU_AT_DATA && (addr&(~0x3FFF)) == MMU.DTCMRegion)
+	if(TIMING && PROCNUM==ARMCPU_ARM9 && AT==MMU_AT_DATA && (addr&((~((u32)(0)))x3FFF)) == MMU.DTCMRegion)
 		return MC; // DTCM
 #endif
 
