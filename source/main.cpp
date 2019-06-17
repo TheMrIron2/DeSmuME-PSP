@@ -183,7 +183,7 @@ const char * save_type_names[] = {
 /* Our keyboard config is different because of the directional keys */
 /* Please note that m is used for fake microphone */
 const u16 cli_kb_cfg[NB_KEYS] =
-  { 
+  {
     SDLK_x,         // A
     SDLK_z,         // B
     SDLK_RSHIFT,    // select
@@ -211,7 +211,7 @@ public:
 
   int engine_3d;
   int savetype;
-  
+
 #ifdef INCLUDE_OPENGL_2D
   int opengl_2d;
   int soft_colour_convert;
@@ -228,9 +228,9 @@ int iGetFreeMemory()
     int iStep = 1000000;
     int iAmount = 0;
     short shSalir = 0;
-    
+
     char *pchAux = NULL;
-    
+
     while(!shSalir)
     {
         iAmount += iStep;
@@ -240,7 +240,7 @@ int iGetFreeMemory()
             //No hay memoria libre!!! = There is no free memory!
             iAmount -= iStep;
             shSalir = 1;
-            
+
         }
         else
         {
@@ -249,7 +249,7 @@ int iGetFreeMemory()
         }
     }
 
-    return iAmount;    
+    return iAmount;
 }
 
 void vdResetEmulator()
@@ -276,7 +276,7 @@ void vdDrawStylus()
 		y = 377;
 	else
 		y -= 3;
-	
+
 	DrawCursor((short*)GPU_screen, x, y);
 	//DrawText((short*)GPU_screen, x, y, false, "+");
 }
@@ -288,13 +288,13 @@ void Gu_draw()
 	u16* runDst;
 
     SDL_Rect rectPant1, rectPant2;
-    
+
 	//PARA IMPRIMIR FPS - to print FPS
 	char achTextoFPS[20];
 	SDL_Rect rectTextoFPS;
 	SDL_Rect rectTextoFrameskip;
 	SDL_Surface *picTextoFPS;
-	SDL_Color textColor = { 240, 0, 200 }; 
+	SDL_Color textColor = { 240, 0, 200 };
 
 	rectTextoFPS.x = 10;
 	rectTextoFPS.y = 10;
@@ -303,13 +303,13 @@ void Gu_draw()
 	rectPant1.y = 0;
 	rectPant2.x = 223;   //CAMBIAR ESTO!!! OJO!!! = CHANGE THIS!!! (??)
 	rectPant2.y = 0;
-	
-                
+
+
     //Screen 1 - No stretch
     if (SDL_MUSTLOCK(surface1))
     while (SDL_LockSurface(surface1) < 0)
         SDL_Delay(10);    //HCF: QUITABLE
-        
+
     memcpy(surface1->pixels, GPU_screen, 256 * 192 * 2);
 
     if (SDL_MUSTLOCK(surface1))
@@ -321,33 +321,33 @@ void Gu_draw()
     if (SDL_MUSTLOCK(surface2))
     while (SDL_LockSurface(surface2) < 0)
         SDL_Delay(10);    //HCF: QUITABLE
-        
+
     memcpy(surface2->pixels, &GPU_screen[256*192*2], 256 * 192 * 2);
 
     if (SDL_MUSTLOCK(surface2))
         SDL_UnlockSurface(surface2);
 
     SDL_BlitSurface(surface2, NULL, SDLscreen, &rectPant2);
-				
-//Para imprimir FPS               
+
+//Para imprimir FPS
     #if( SHOW_FPS_VERSION  == 1 )
 			sprintf(achTextoFPS, "%d", totalframessegundo);
-			picTextoFPS = TTF_RenderText_Solid( font, achTextoFPS, textColor ); 
+			picTextoFPS = TTF_RenderText_Solid( font, achTextoFPS, textColor );
 			rectTextoFPS.x = 260;
 			SDL_BlitSurface(picTextoFPS, NULL, SDLscreen, &rectTextoFPS);
 			SDL_FreeSurface(picTextoFPS);
-			
+
 			//Para imprimir frameskip
 			//Para imprimir frameskip
 			sprintf(achTextoFPS, "%d", frameskip);
-			picTextoFPS = TTF_RenderText_Solid( font, achTextoFPS, textColor ); 
+			picTextoFPS = TTF_RenderText_Solid( font, achTextoFPS, textColor );
 			rectTextoFrameskip.x = 330;
 			SDL_BlitSurface(picTextoFPS, NULL, SDLscreen, &rectTextoFrameskip);
 			SDL_FreeSurface(picTextoFPS);
 	#endif
 
             SDL_Flip(SDLscreen);
-	
+
 }
 
 
@@ -355,11 +355,11 @@ int compara(char a, char b, char c)
 {
 	if( a == b || a == c )
 	{
-		return 1;	
-	}	
+		return 1;
+	}
 	else
 	{
-		return 0;	
+		return 0;
 	}
 }
 
@@ -406,7 +406,7 @@ static void desmume_cycle(struct ctrls_event_config * cfg)
     if(SDL_JoystickEventState(SDL_QUERY) == SDL_IGNORE)
       SDL_JoystickEventState(SDL_ENABLE);
 
-    // There's an event waiting to be processed? 
+    // There's an event waiting to be processed?
     while ( !cfg->sdl_quit &&
         (SDL_PollEvent(&event) || (!cfg->focused && SDL_WaitEvent(&event))))
       {
@@ -419,7 +419,7 @@ static void desmume_cycle(struct ctrls_event_config * cfg)
     /* Update mouse position and click */
     if(mouse.down) NDS_setTouchPos(mouse.x, mouse.y);
     if(mouse.click)
-      { 
+      {
         NDS_releaseTouch();
         mouse.click = FALSE;
       }
@@ -431,10 +431,10 @@ static void desmume_cycle(struct ctrls_event_config * cfg)
 	//vdDejaLog("NDS_EXEC  ");
 
     NDS_exec<false>();
-	
+
 	//vdDejaLog("A SOUND  ");
 
-	if ( enable_sound) 
+	if ( enable_sound)
 	{
 		if(soundskipa == 0)
 		{
@@ -460,7 +460,7 @@ T_AGG_RGB555 agg_targetScreen_cli(GPU_screen, 256, 384, 512);
 /*
 std::string strsub(const std::string& str, int pos, int len) {
 	int strlen = str.size();
-	
+
 	if(strlen==0) return str; //empty strings always return empty strings
 	if(pos>=strlen) return str; //if you start past the end of the string, return the entire string. this is unusual, but there you have it
 
@@ -472,13 +472,13 @@ std::string strsub(const std::string& str, int pos, int len) {
 
 	if (pos+len>=strlen)
 		len=strlen-pos+1;
-	
+
 	//return str.str().substr(pos,len);
 	return str.substr(pos,len);
 }
-std::string strright(const std::string& str, int len) 
-{ 
-	return len ? strsub(str,str.size()-len,len) : ""; 
+std::string strright(const std::string& str, int len)
+{
+	return len ? strsub(str,str.size()-len,len) : "";
 }
 std::string toupper(const std::string& str)
 {
@@ -509,17 +509,17 @@ extern "C" int SDL_main(int argc, char **argv) {
   int limiter_tick0 = 0;
   int error;
 
-/* Xbox variables
+
   FILE *fdini;
   char chCar;
   int jjj, kk, kkk, salir, indice;
   int t1, t2, t3, tsegundo1, framessegundo;
   char dataParams[MAX_NOMBRE_FICHERO];
   char achFicheroElegido[MAX_NOMBRE_FICHERO];
-*/ 
+  
   //LOGS
   char CAPIMBE[128];
-  
+
   //  GKeyFile *keyfile;
 
   int now;
@@ -533,7 +533,7 @@ extern "C" int SDL_main(int argc, char **argv) {
   scePowerSetClockFrequency(333, 333, 166);
 
     vdDejaLog("INICIO");
-    
+
     //LOGS
     memset(CAPIMBE,0x00, 128);
     sprintf(CAPIMBE, "%d", iGetFreeMemory());
@@ -546,15 +546,15 @@ extern "C" int SDL_main(int argc, char **argv) {
 
   /* this holds some info about our display */
   //const SDL_VideoInfo *videoInfo;
-  
+
   //HCF Settings (firmware language... and RFU)
   inIdiomaFirmware = 1;  //English by default
-  
+
 
   //HCF configuration parameters
-  
+
   //DATAPARAMS
-  
+
   /* the firmware settings */
   struct NDS_fw_config_data fw_config;
 
@@ -626,7 +626,7 @@ extern "C" int SDL_main(int argc, char **argv) {
 			slot2_device_type = NDS_SLOT2_NONE;
 			break;
 	}
-    
+
     slot2_Init();
 
     slot2_Change((NDS_SLOT2_TYPE)slot2_device_type);
@@ -641,7 +641,7 @@ extern "C" int SDL_main(int argc, char **argv) {
 
   /* Create the dummy firmware */
   NDS_CreateDummyFirmware( &fw_config);
-  
+
   if ( !my_config.disable_sound) {
     SPU_ChangeSoundCore(SNDCORE_SDL, 735 * 4);
   }
@@ -649,7 +649,7 @@ extern "C" int SDL_main(int argc, char **argv) {
   NDS_3D_ChangeCore(my_config.engine_3d);
 
   backup_setManualBackupType(my_config.savetype);
-	
+
 	//HCF Parameters
 	nFrameskip = 5;  //Frameskip 3
 	iEnableSound = 5;  //Sound underclocked x 4
@@ -657,7 +657,7 @@ extern "C" int SDL_main(int argc, char **argv) {
 
 	//USE JIT/DYNAREC (old motherboard speed)
 	iUsarDynarec = 0;
-	
+
 
 	//Sound Quality (channels playing)
 	iSoundQuality = 1;  //16 channels
@@ -683,9 +683,9 @@ extern "C" int SDL_main(int argc, char **argv) {
 	*/
 
 	bBlitAll = true;
-	
+
 	emula3D = false; //true;
-	
+
 
 	//Sound Mode (Async / Sync / Interpolated)
     //HCF SOUND MODE
@@ -694,9 +694,9 @@ extern "C" int SDL_main(int argc, char **argv) {
     #define SOUND_MODE_SYNC_INTERPOLATED   2
 	iSoundMode = SOUND_MODE_ASYNC;
 
-	
+
     //Selected Rom
-	
+
 	//Final character
 	strcpy(achFicheroElegido, "test.nds");
 
@@ -716,14 +716,14 @@ extern "C" int SDL_main(int argc, char **argv) {
 			{
 				for( indice = kk + 4; indice < 256; indice++ )
 				{
-					rom_filename[indice] = '\0';	
-				}		
-				salir = 1;		
+					rom_filename[indice] = '\0';
+				}
+				salir = 1;
 			}
-			 
+
 		}
 	}
-	//HCF Fix the name of the selected file!	
+	//HCF Fix the name of the selected file!
 
   //HCF Aqui se sobreescribe la configuracion por defecto
   //HCF con la que eligio el usuario = default config overwritten here with user preferences
@@ -752,21 +752,21 @@ extern "C" int SDL_main(int argc, char **argv) {
   else
 	  CommonSettings.spuInterpolationMode = 0;
 
-  
+
   vdDejaLog("LOAD ROM");
-  
+
     //LOGS
     memset(CAPIMBE,0x00, 128);
     sprintf(CAPIMBE, "%d", iGetFreeMemory());
     vdDejaLog(CAPIMBE);
     //LOGS
-    
+
 	//Alloc the Volatile memory
 	/*
 	if( !inVolatileAssigned )
 	{
 		int HCF_RAM_SIZE;  // = 3670016; //3,5 MB de momento
-		int reta = sceKernelVolatileMemLock(0,	&HCF_RAM_ARRAY, &HCF_RAM_SIZE); 
+		int reta = sceKernelVolatileMemLock(0,	&HCF_RAM_ARRAY, &HCF_RAM_SIZE);
 		MMU.MAIN_MEM = (u8*)HCF_RAM_ARRAY;
 
 		memset(HCF_RAM_ARRAY, 0, HCF_RAM_SIZE);
@@ -775,7 +775,7 @@ extern "C" int SDL_main(int argc, char **argv) {
 	}
 	*/
 
-    
+
   error = NDS_LoadROM( rom_filename ) ;   //my_config.nds_file.c_str() );
   if (error < 0) {
       vdDejaLog("ERROR LEYENDO ROM:");
@@ -787,13 +787,13 @@ extern "C" int SDL_main(int argc, char **argv) {
   execute = true;
 
   vdDejaLog("INIT SDL");
-  
+
   //LOGS
     memset(CAPIMBE,0x00, 128);
     sprintf(CAPIMBE, "%d", iGetFreeMemory());
     vdDejaLog(CAPIMBE);
   //LOGS
-  
+
   if(SDL_Init(SDL_INIT_TIMER | SDL_INIT_VIDEO) == -1)
     {
       fprintf(stderr, "Error trying to initialize SDL: %s\n",
@@ -803,19 +803,19 @@ extern "C" int SDL_main(int argc, char **argv) {
   //SDL_WM_SetCaption("Desmume SDL", NULL);
 
   vdDejaLog("SET VIDEO MODE");
-  
+
     //HCF PSP
     //SDLscreen = SDL_SetVideoMode(480, 272, 16, SDL_HWPALETTE | SDL_RESIZABLE); // hardware code commented out?
 	SDLscreen = SDL_SetVideoMode(480, 272, 16, SDL_SWSURFACE | SDL_FULLSCREEN);
-  
 
+/*
   vdDejaLog("FONT");
-  
+
     TTF_Init();
     font = TTF_OpenFont( "tahoma.ttf", 14 );
 
     vdDejaLog("CREATE SURFACES 1 y 2");
-    
+
     //REVISAR FLAGS!!!
 	/*
     surface1 = SDL_CreateRGBSurface(SDL_SWSURFACE, 256, 192, 16, 0x001F, 0x03E0, 0x7C00, 0);
@@ -823,7 +823,7 @@ extern "C" int SDL_main(int argc, char **argv) {
 	*/
     surface1 = SDL_CreateRGBSurface(SDL_SWSURFACE, 256, 192, 16, 0x7c00, 0x03E0, 0x001f, 0);
     surface2 = SDL_CreateRGBSurface(SDL_SWSURFACE, 256, 192, 16, 0x7c00, 0x03E0, 0x001f, 0);
-	
+
 
     vdDejaLog("CREADAS SURFACES 1 y 2");
     //LOGS
@@ -831,8 +831,8 @@ extern "C" int SDL_main(int argc, char **argv) {
     sprintf(CAPIMBE, "%d", iGetFreeMemory());
     vdDejaLog(CAPIMBE);
     //LOGS
-    
-    
+
+
   /* Fetch the video info */
   /*
 	videoInfo = SDL_GetVideoInfo( );
@@ -855,9 +855,9 @@ extern "C" int SDL_main(int argc, char **argv) {
       exit( -1);
     }
 	*/
-    
+
     vdDejaLog("INIT JOY");
-    
+
 
   /* Initialize joysticks */
   if(!init_joy()) return 1;
@@ -865,7 +865,7 @@ extern "C" int SDL_main(int argc, char **argv) {
   //keyfile = desmume_config_read_file(cli_kb_cfg);
   //desmume_config_dispose(keyfile);
   /* Since gtk has a different mapping the keys stop to work with the saved configuration :| */
-  
+
   load_default_config(cli_kb_cfg);
 
   //HCF Savestates
@@ -874,8 +874,8 @@ extern "C" int SDL_main(int argc, char **argv) {
     loadstate_slot(my_config.load_slot);
   }
   */
-  
-  
+
+
 #ifdef HAVE_LIBAGG
   Desmume_InitOnce();
   Hud.reset();
@@ -905,12 +905,12 @@ extern "C" int SDL_main(int argc, char **argv) {
   //Para imprimir frameskip y FPS
 
   vdDejaLog("A BUCLE PPAL");
-  
+
   //while(!ctrls_cfg.sdl_quit) {
-  while(1) 
+  while(1)
   {
 	  vdDejaLog("EN BUCLE PPAL");
-  
+
 	  t1 = SDL_GetTicks();
 
 	  	//Para imprimir FPS
@@ -927,41 +927,41 @@ extern "C" int SDL_main(int argc, char **argv) {
 		osd->update();
 
 //vdDejaLog("DRAW HUD");
-  
+
 		DrawHUD();
 
 //vdDejaLog("GU DRAW");
-  
+
 
         //HCF PSP
         Gu_draw();
 
 //vdDejaLog("OSD CLEAR");
-  
+
 	osd->clear();
 
 		//vdDejaLog("EJEC");
-  
+
 
 		//for ( int i = 0; i < my_config.frameskip; i++ ) {
 		for ( int i = 0; i < frameskip; i++ ) {
 
 			//vdDejaLog("A SKIP");
-  
+
 			NDS_SkipNextFrame();
 
 			//vdDejaLog("A CYCLE");
-  
+
 			desmume_cycle(&ctrls_cfg);
 
 			//vdDejaLog("A FPS++");
-  
+
 
 			framessegundo++;
 		}
 
 		//vdDejaLog("A SEGUNDO TIMING");
-  
+
 
 		/*
 	#ifdef DISPLAY_FPS
@@ -978,12 +978,12 @@ extern "C" int SDL_main(int argc, char **argv) {
 			{
 				if( iAutoFrameskip == FRAMESKIP_AUTO_BOTH )
 				{
-					if(frameskip < nFrameskip) 
+					if(frameskip < nFrameskip)
 						frameskip++;
 				}
 				else
 				{
-					if(frameskip + 2 <= nFrameskip) 
+					if(frameskip + 2 <= nFrameskip)
 						frameskip += 2;
 				}
 			}
@@ -997,7 +997,7 @@ extern "C" int SDL_main(int argc, char **argv) {
 				}
 				else
 				{
-					if(frameskip - 2 >= 0) 
+					if(frameskip - 2 >= 0)
 						frameskip -= 2;
 				}
 			}
@@ -1008,14 +1008,14 @@ extern "C" int SDL_main(int argc, char **argv) {
             t2 = SDL_GetTicks();
 			t3 = t2 - t1;
 
-			 if( t3 < JUST_EXPECTED_FRAME_TIME ) 
+			 if( t3 < JUST_EXPECTED_FRAME_TIME )
 				SDL_Delay(JUST_EXPECTED_FRAME_TIME - t3);
             /*
 			if( t3 < ( (frameskip + 1) * JUST_EXPECTED_FRAME_TIME )  )
                 SDL_Delay(( (frameskip + 1) * JUST_EXPECTED_FRAME_TIME ) - t3);
 			*/
         }
-		else if (iLimitFramerate == LIMIT_FRAMERATE_DESMUME) 
+		else if (iLimitFramerate == LIMIT_FRAMERATE_DESMUME)
 		{
 			//if ( !my_config.disable_limiter && !ctrls_cfg.boost) {
 			/*
@@ -1028,12 +1028,12 @@ extern "C" int SDL_main(int argc, char **argv) {
 
 			int delay =  (limiter_tick0 + limiter_frame_counter*1000/FPS_LIMITER_FPS) - now;
 			if (delay < -500 || delay > 100)
-			{ 
+			{
 				// reset if we fall too far behind don't want to run super fast until we catch up
 				limiter_tick0 = now;
 				limiter_frame_counter = 0;
-			} 
-			else if (delay > 0) 
+			}
+			else if (delay > 0)
 			{
 				SDL_Delay(delay);
 			}
@@ -1043,7 +1043,7 @@ extern "C" int SDL_main(int argc, char **argv) {
 		limiter_frame_counter += 1 + frameskip;
 
 
-		
+
 
 #ifdef DISPLAY_FPS
     fps_frame_counter += 1;
@@ -1065,10 +1065,10 @@ extern "C" int SDL_main(int argc, char **argv) {
   }
 
   vdDejaLog("SALE DE BUCLE PPAL");
-  
+
   /* Unload joystick */
   uninit_joy();
-  
+
   SDL_Quit();
   NDS_DeInit();
 
