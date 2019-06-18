@@ -31,6 +31,7 @@
 #include <pspctrl.h>
 #include <pspdisplay.h>
 #include <pspsuspend.h>
+#include <pspkernel.h>
 
 //HCF: To allocate volatile memory
 /*
@@ -48,9 +49,9 @@ PSP_MAIN_THREAD_STACK_SIZE_KB(1024);
 PSP_HEAP_SIZE_KB(-256);
 PSP_MAIN_THREAD_STACK_SIZE_KB(256);
 */
-
-PSP_HEAP_SIZE_KB(-2048);
-PSP_MAIN_THREAD_STACK_SIZE_KB(2048);
+PSP_MAIN_THREAD_ATTR( PSP_THREAD_ATTR_VFPU );
+PSP_HEAP_SIZE_KB(-256);
+PSP_MAIN_THREAD_STACK_SIZE_KB(256);
 
 
 
@@ -516,7 +517,7 @@ extern "C" int SDL_main(int argc, char **argv) {
   int t1, t2, t3, tsegundo1, framessegundo;
   char dataParams[MAX_NOMBRE_FICHERO];
   char achFicheroElegido[MAX_NOMBRE_FICHERO];
-  
+
   //LOGS
   char CAPIMBE[128];
 
