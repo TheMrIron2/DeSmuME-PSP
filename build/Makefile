@@ -120,6 +120,6 @@ PSP_EBOOT_TITLE = Desmume
 
 include $(PSPSDK)/lib/build.mak
 
-#PSP_EBOOT_ICON = ICON0.png
-#PSP_EBOOT_PIC1 = PIC1.png
+PSP_EBOOT_ICON = ICON0.png
+PSP_EBOOT_PIC1 = PIC1.png
 #PSP_EBOOT_SND0 = SND0.at3

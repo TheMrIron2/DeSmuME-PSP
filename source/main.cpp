@@ -809,11 +809,11 @@ extern "C" int SDL_main(int argc, char **argv) {
     //SDLscreen = SDL_SetVideoMode(480, 272, 16, SDL_HWPALETTE | SDL_RESIZABLE); // hardware code commented out?
 	SDLscreen = SDL_SetVideoMode(480, 272, 16, SDL_SWSURFACE | SDL_FULLSCREEN);
 
-/*
+
   vdDejaLog("FONT");
 
     TTF_Init();
-    font = TTF_OpenFont( "tahoma.ttf", 14 );
+    font = TTF_OpenFont( "OpenSans-Regular.ttf", 12 );
 
     vdDejaLog("CREATE SURFACES 1 y 2");
 
