@@ -102,7 +102,7 @@ SDL_CONFIG = /usr/local/pspdev/psp/bin/sdl-config
 
 
 ###CFLAGS = -O2 -fweb -fomit-frame-pointer -G0 -Wall -D PSP
-CFLAGS = -Os -ffast-math -fweb -fomit-frame-pointer  -G0 -Wall -D PSP
+CFLAGS = -O2 -ffast-math -fweb -fomit-frame-pointer  -G0 -Wall -D PSP
 
 
 CFLAGS += $(shell $(SDL_CONFIG) --cflags)
