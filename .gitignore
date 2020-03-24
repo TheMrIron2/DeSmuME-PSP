@@ -5,3 +5,6 @@
 
 # Binarys
 EBOOT.PBP
+
+# test roms
+*.nds
