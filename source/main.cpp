@@ -306,9 +306,10 @@ void Gu_draw()
 	rectTextoFPS.y = 10;
 	rectTextoFrameskip.y = 10;
 	rectPant1.x = 0;
-	rectPant1.y = 0;
-	rectPant2.x = 223;   //CAMBIAR ESTO!!! OJO!!! = CHANGE THIS!!! (??)
-	rectPant2.y = 0;
+	rectPant1.y = 40;
+    
+	rectPant2.x = 240;
+	rectPant2.y = 40;
 
 
     //Screen 1 - No stretch
@@ -837,8 +838,12 @@ extern "C" int SDL_main(int argc, char **argv) {
     surface1 = SDL_CreateRGBSurface(SDL_SWSURFACE, 256, 192, 16, 0x001F, 0x03E0, 0x7C00, 0);
     surface2 = SDL_CreateRGBSurface(SDL_SWSURFACE, 256, 192, 16, 0x001F, 0x03E0, 0x7C00, 0);
 	*/
-    surface1 = SDL_CreateRGBSurface(SDL_SWSURFACE, 256, 192, 16, 0x7c00, 0x03E0, 0x001f, 0);
-    surface2 = SDL_CreateRGBSurface(SDL_SWSURFACE, 256, 192, 16, 0x7c00, 0x03E0, 0x001f, 0);
+
+    //BLUE 0b111110000000000
+    //GREEN 0b1111100000
+    //RED 0b11111
+    surface2 = SDL_CreateRGBSurface(SDL_SWSURFACE, 256, 192, 16, 0b11110, 0b1111100000, 0b111110000000000, 0);
+    surface1 = SDL_CreateRGBSurface(SDL_SWSURFACE, 256, 192, 16, 0b11110, 0b1111100000, 0b111110000000000, 0);
 
 
     vdDejaLog("CREADAS SURFACES 1 y 2");
@@ -922,6 +927,7 @@ extern "C" int SDL_main(int argc, char **argv) {
 
   vdDejaLog("A BUCLE PPAL");
 
+  int profileSamples = 0;
 
   //while(!ctrls_cfg.sdl_quit) {
   while(1)
@@ -963,8 +969,8 @@ extern "C" int SDL_main(int argc, char **argv) {
 
 		//vdDejaLog("EJEC");
 
-
-    pf.outputStats();
+    if(profileSamples % 100 == 0)
+        pf.outputStats();
 		//for ( int i = 0; i < my_config.frameskip; i++ ) {
 		for ( int i = 0; i < frameskip; i++ ) {
 
