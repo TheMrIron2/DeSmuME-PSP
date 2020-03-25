@@ -2,22 +2,22 @@
 [PROFILER NAME]: DeSmuME
 
 [METHOD NAME]: Desmume Cycle
-[Desmume Cycle]	NUM OF SAMPLES: 132 samples
-[Desmume Cycle]	AVERAGE TIME: 402.473ms
-[Desmume Cycle]	MINIMUM TIME: 84.542ms
-[Desmume Cycle]	MAXIMUM TIME: 734.432ms
-[Desmume Cycle]	MEDIAN TIME: 399.561ms
+[Desmume Cycle]	NUM OF SAMPLES: 345 samples
+[Desmume Cycle]	AVERAGE TIME: 330.391ms
+[Desmume Cycle]	MINIMUM TIME: 84.264ms
+[Desmume Cycle]	MAXIMUM TIME: 8245.88ms
+[Desmume Cycle]	MEDIAN TIME: 215.306ms
 
 [METHOD NAME]: Draw - > memcpy
-[Draw - > memcpy]	NUM OF SAMPLES: 264 samples
-[Draw - > memcpy]	AVERAGE TIME: 0.0989736ms
+[Draw - > memcpy]	NUM OF SAMPLES: 694 samples
+[Draw - > memcpy]	AVERAGE TIME: 3.11982ms
 [Draw - > memcpy]	MINIMUM TIME: 0.094ms
-[Draw - > memcpy]	MAXIMUM TIME: 0.828ms
+[Draw - > memcpy]	MAXIMUM TIME: 1901.68ms
 [Draw - > memcpy]	MEDIAN TIME: 0.095ms
 
 [METHOD NAME]: Draw - > blit
-[Draw - > blit]	NUM OF SAMPLES: 264 samples
-[Draw - > blit]	AVERAGE TIME: 2.92582ms
-[Draw - > blit]	MINIMUM TIME: 2.838ms
+[Draw - > blit]	NUM OF SAMPLES: 694 samples
+[Draw - > blit]	AVERAGE TIME: 2.8458ms
+[Draw - > blit]	MINIMUM TIME: 2.66ms
 [Draw - > blit]	MAXIMUM TIME: 3.69ms
 [Draw - > blit]	MEDIAN TIME: 2.838ms
