@@ -340,7 +340,8 @@ struct MMU_struct
 	//////u8 ARM9_REG[0x400000]; //this variable is evil and should be removed by correctly emulating all registers.
 
 	//HCF This memory optimization should be safe
-    //HCF PSP
+    //HCF 
+
     u8 ARM9_REG[0x100000]; //this variable is evil and should be removed by correctly emulating all registers.
 	//u8 ARM9_REG[0x200000]; //this variable is evil and should be removed by correctly emulating all registers.
 	

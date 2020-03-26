@@ -1,0 +1,255 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Debug|Win32">
+      <Configuration>Debug</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|Win32">
+      <Configuration>Release</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Debug|x64">
+      <Configuration>Debug</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|x64">
+      <Configuration>Release</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+  </ItemGroup>
+  <PropertyGroup Label="Globals">
+    <VCProjectVersion>16.0</VCProjectVersion>
+    <ProjectGuid>{EB19B0B6-6120-4F3C-85D6-AB1A581F2585}</ProjectGuid>
+    <Keyword>Win32Proj</Keyword>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
+    <ConfigurationType>Makefile</ConfigurationType>
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <PlatformToolset>v142</PlatformToolset>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
+    <ConfigurationType>Makefile</ConfigurationType>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <PlatformToolset>v142</PlatformToolset>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
+    <ConfigurationType>Makefile</ConfigurationType>
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <PlatformToolset>v142</PlatformToolset>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
+    <ConfigurationType>Makefile</ConfigurationType>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <PlatformToolset>v142</PlatformToolset>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <ImportGroup Label="ExtensionSettings">
+  </ImportGroup>
+  <ImportGroup Label="Shared">
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <PropertyGroup Label="UserMacros" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <NMakeBuildCommandLine>build.bat</NMakeBuildCommandLine>
+    <NMakeOutput>DSPSP.exe</NMakeOutput>
+    <NMakeCleanCommandLine>clean.bat</NMakeCleanCommandLine>
+    <NMakeReBuildCommandLine>rebuild.bat</NMakeReBuildCommandLine>
+    <NMakePreprocessorDefinitions>WIN32;_DEBUG;$(NMakePreprocessorDefinitions)</NMakePreprocessorDefinitions>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <NMakeBuildCommandLine>build.bat</NMakeBuildCommandLine>
+    <NMakeOutput>DSPSP.exe</NMakeOutput>
+    <NMakeCleanCommandLine>clean.bat</NMakeCleanCommandLine>
+    <NMakeReBuildCommandLine>rebuild.bat</NMakeReBuildCommandLine>
+    <NMakePreprocessorDefinitions>_DEBUG;$(NMakePreprocessorDefinitions)</NMakePreprocessorDefinitions>
+    <IncludePath>C:\Users\Iride\Desktop\DeSmuME-PSP\build\libs\include;C:\pspsdk\psp\include\SDL;C:\pspsdk\psp\sdk\include;C:\pspsdk\psp\include;$(IncludePath)</IncludePath>
+    <AdditionalOptions>/std:c++17</AdditionalOptions>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <NMakeBuildCommandLine>build.bat</NMakeBuildCommandLine>
+    <NMakeOutput>DSPSP.exe</NMakeOutput>
+    <NMakeCleanCommandLine>clean.bat</NMakeCleanCommandLine>
+    <NMakeReBuildCommandLine>rebuild.bat</NMakeReBuildCommandLine>
+    <NMakePreprocessorDefinitions>WIN32;NDEBUG;$(NMakePreprocessorDefinitions)</NMakePreprocessorDefinitions>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <NMakeBuildCommandLine>build.bat</NMakeBuildCommandLine>
+    <NMakeOutput>DSPSP.exe</NMakeOutput>
+    <NMakeCleanCommandLine>clean.bat</NMakeCleanCommandLine>
+    <NMakeReBuildCommandLine>rebuild.bat</NMakeReBuildCommandLine>
+    <NMakePreprocessorDefinitions>NDEBUG;$(NMakePreprocessorDefinitions)</NMakePreprocessorDefinitions>
+  </PropertyGroup>
+  <ItemDefinitionGroup>
+  </ItemDefinitionGroup>
+  <ItemGroup>
+    <ClInclude Include="..\source\agg2d.h" />
+    <ClInclude Include="..\source\aggdraw.h" />
+    <ClInclude Include="..\source\armcpu.h" />
+    <ClInclude Include="..\source\arm_jit.h" />
+    <ClInclude Include="..\source\bios.h" />
+    <ClInclude Include="..\source\bits.h" />
+    <ClInclude Include="..\source\commandline.h" />
+    <ClInclude Include="..\source\common.h" />
+    <ClInclude Include="..\source\cp15.h" />
+    <ClInclude Include="..\source\ctrlssdl.h" />
+    <ClInclude Include="..\source\debug.h" />
+    <ClInclude Include="..\source\desmume_config.h" />
+    <ClInclude Include="..\source\Disassembler.h" />
+    <ClInclude Include="..\source\driver.h" />
+    <ClInclude Include="..\source\emufile.h" />
+    <ClInclude Include="..\source\emufile_types.h" />
+    <ClInclude Include="..\source\encrypt.h" />
+    <ClInclude Include="..\source\FIFO.h" />
+    <ClInclude Include="..\source\firmware.h" />
+    <ClInclude Include="..\source\fs.h" />
+    <ClInclude Include="..\source\gdbstub.h" />
+    <ClInclude Include="..\source\gfx3d.h" />
+    <ClInclude Include="..\source\GPU.h" />
+    <ClInclude Include="..\source\GPU_osd.h" />
+    <ClInclude Include="..\source\instructions.h" />
+    <ClInclude Include="..\source\instruction_attributes.h" />
+    <ClInclude Include="..\source\lua-engine.h" />
+    <ClInclude Include="..\source\matrix.h" />
+    <ClInclude Include="..\source\mc.h" />
+    <ClInclude Include="..\source\mem.h" />
+    <ClInclude Include="..\source\mic.h" />
+    <ClInclude Include="..\source\MMU.h" />
+    <ClInclude Include="..\source\MMU_timing.h" />
+    <ClInclude Include="..\source\NDSSystem.h" />
+    <ClInclude Include="..\source\OGLRender.h" />
+    <ClInclude Include="..\source\OGLRender_3_2.h" />
+    <ClInclude Include="..\source\PACKED.h" />
+    <ClInclude Include="..\source\PACKED_END.h" />
+    <ClInclude Include="..\source\path.h" />
+    <ClInclude Include="..\source\rasterize.h" />
+    <ClInclude Include="..\source\readwrite.h" />
+    <ClInclude Include="..\source\registers.h" />
+    <ClInclude Include="..\source\render3D.h" />
+    <ClInclude Include="..\source\ROMReader.h" />
+    <ClInclude Include="..\source\rtc.h" />
+    <ClInclude Include="..\source\saves.h" />
+    <ClInclude Include="..\source\slot1.h" />
+    <ClInclude Include="..\source\slot2.h" />
+    <ClInclude Include="..\source\sndsdl.h" />
+    <ClInclude Include="..\source\SPU.h" />
+    <ClInclude Include="..\source\texcache.h" />
+    <ClInclude Include="..\source\types.h" />
+    <ClInclude Include="..\source\version.h" />
+    <ClInclude Include="..\source\wifi.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="..\source\agg2d.inl" />
+    <None Include="..\source\instruction_tabdef.inc" />
+    <None Include="..\source\thumb_tabdef.inc" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="..\source\aggdraw.cpp" />
+    <ClCompile Include="..\source\armcpu.cpp" />
+    <ClCompile Include="..\source\arm_instructions.cpp" />
+    <ClCompile Include="..\source\arm_jit.cpp" />
+    <ClCompile Include="..\source\bios.cpp" />
+    <ClCompile Include="..\source\commandline.cpp" />
+    <ClCompile Include="..\source\common.cpp" />
+    <ClCompile Include="..\source\cp15.cpp" />
+    <ClCompile Include="..\source\ctrlssdl.cpp" />
+    <ClCompile Include="..\source\debug.cpp" />
+    <ClCompile Include="..\source\desmume_config.cpp" />
+    <ClCompile Include="..\source\Disassembler.cpp" />
+    <ClCompile Include="..\source\driver.cpp" />
+    <ClCompile Include="..\source\emufile.cpp" />
+    <ClCompile Include="..\source\encrypt.cpp" />
+    <ClCompile Include="..\source\FIFO.cpp" />
+    <ClCompile Include="..\source\firmware.cpp" />
+    <ClCompile Include="..\source\fs-linux.cpp" />
+    <ClCompile Include="..\source\fs-windows.cpp" />
+    <ClCompile Include="..\source\gfx3d.cpp" />
+    <ClCompile Include="..\source\GPU.cpp" />
+    <ClCompile Include="..\source\GPU_osd.cpp" />
+    <ClCompile Include="..\source\GPU_osd_stub.cpp" />
+    <ClCompile Include="..\source\lua-engine.cpp" />
+    <ClCompile Include="..\source\main.cpp" />
+    <ClCompile Include="..\source\matrix.cpp" />
+    <ClCompile Include="..\source\mc.cpp" />
+    <ClCompile Include="..\source\mic.cpp" />
+    <ClCompile Include="..\source\mic_alsa.cpp" />
+    <ClCompile Include="..\source\mic_openal.cpp" />
+    <ClCompile Include="..\source\MMU.cpp" />
+    <ClCompile Include="..\source\NDSSystem.cpp" />
+    <ClCompile Include="..\source\OGLRender.cpp" />
+    <ClCompile Include="..\source\OGLRender_3_2.cpp" />
+    <ClCompile Include="..\source\path.cpp" />
+    <ClCompile Include="..\source\rasterize.cpp" />
+    <ClCompile Include="..\source\readwrite.cpp" />
+    <ClCompile Include="..\source\render3D.cpp" />
+    <ClCompile Include="..\source\ROMReader.cpp" />
+    <ClCompile Include="..\source\rtc.cpp" />
+    <ClCompile Include="..\source\saves.cpp" />
+    <ClCompile Include="..\source\slot1.cpp" />
+    <ClCompile Include="..\source\slot2.cpp" />
+    <ClCompile Include="..\source\sndsdl.cpp" />
+    <ClCompile Include="..\source\SPU.cpp" />
+    <ClCompile Include="..\source\texcache.cpp" />
+    <ClCompile Include="..\source\thumb_instructions.cpp" />
+    <ClCompile Include="..\source\version.cpp" />
+    <ClCompile Include="..\source\wifi.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <Object Include="..\source\armcpu.o" />
+    <Object Include="..\source\arm_instructions.o" />
+    <Object Include="..\source\bios.o" />
+    <Object Include="..\source\commandline.o" />
+    <Object Include="..\source\common.o" />
+    <Object Include="..\source\cp15.o" />
+    <Object Include="..\source\ctrlssdl.o" />
+    <Object Include="..\source\debug.o" />
+    <Object Include="..\source\driver.o" />
+    <Object Include="..\source\emufile.o" />
+    <Object Include="..\source\encrypt.o" />
+    <Object Include="..\source\FIFO.o" />
+    <Object Include="..\source\firmware.o" />
+    <Object Include="..\source\gfx3d.o" />
+    <Object Include="..\source\GPU.o" />
+    <Object Include="..\source\GPU_osd_stub.o" />
+    <Object Include="..\source\main.o" />
+    <Object Include="..\source\matrix.o" />
+    <Object Include="..\source\mc.o" />
+    <Object Include="..\source\mic.o" />
+    <Object Include="..\source\MMU.o" />
+    <Object Include="..\source\NDSSystem.o" />
+    <Object Include="..\source\path.o" />
+    <Object Include="..\source\rasterize.o" />
+    <Object Include="..\source\readwrite.o" />
+    <Object Include="..\source\render3D.o" />
+    <Object Include="..\source\ROMReader.o" />
+    <Object Include="..\source\rtc.o" />
+    <Object Include="..\source\slot1.o" />
+    <Object Include="..\source\slot2.o" />
+    <Object Include="..\source\sndsdl.o" />
+    <Object Include="..\source\SPU.o" />
+    <Object Include="..\source\texcache.o" />
+    <Object Include="..\source\thumb_instructions.o" />
+    <Object Include="..\source\wifi.o" />
+  </ItemGroup>
+  <ItemGroup>
+    <Image Include="..\source\Rectangle.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <Font Include="..\source\tahoma.ttf" />
+  </ItemGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+  <ImportGroup Label="ExtensionTargets">
+  </ImportGroup>
+</Project>
