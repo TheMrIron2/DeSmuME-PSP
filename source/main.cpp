@@ -33,6 +33,9 @@
 #include <pspsuspend.h>
 #include <pspkernel.h>
 
+#include <Profiler/Profiler.h>
+Stardust::Profiling::Profiler pf("DeSmuME");
+
 //HCF: To allocate volatile memory
 /*
 extern void* HCF_RAM_ARRAY;
@@ -282,6 +285,8 @@ void vdDrawStylus()
 	//DrawText((short*)GPU_screen, x, y, false, "+");
 }
 
+#include <pspgu.h>
+
 void Gu_draw()
 {
 	int i, j;
@@ -301,9 +306,10 @@ void Gu_draw()
 	rectTextoFPS.y = 10;
 	rectTextoFrameskip.y = 10;
 	rectPant1.x = 0;
-	rectPant1.y = 0;
-	rectPant2.x = 223;   //CAMBIAR ESTO!!! OJO!!! = CHANGE THIS!!! (??)
-	rectPant2.y = 0;
+	rectPant1.y = 40;
+    
+	rectPant2.x = 240;
+	rectPant2.y = 40;
 
 
     //Screen 1 - No stretch
@@ -311,24 +317,34 @@ void Gu_draw()
     while (SDL_LockSurface(surface1) < 0)
         SDL_Delay(10);    //HCF: QUITABLE
 
+    pf.beginProfileMethod();
     memcpy(surface1->pixels, GPU_screen, 256 * 192 * 2);
+    pf.endProfileMethod("Draw - > memcpy");
 
     if (SDL_MUSTLOCK(surface1))
         SDL_UnlockSurface(surface1);
 
+    pf.beginProfileMethod();
     SDL_BlitSurface(surface1, NULL, SDLscreen, &rectPant1);
+    pf.endProfileMethod("Draw - > blit");
 
     //Screen 2 - No stretch
     if (SDL_MUSTLOCK(surface2))
     while (SDL_LockSurface(surface2) < 0)
         SDL_Delay(10);    //HCF: QUITABLE
 
+
+    pf.beginProfileMethod();
     memcpy(surface2->pixels, &GPU_screen[256*192*2], 256 * 192 * 2);
+    pf.endProfileMethod("Draw - > memcpy");
 
     if (SDL_MUSTLOCK(surface2))
         SDL_UnlockSurface(surface2);
 
+
+    pf.beginProfileMethod();
     SDL_BlitSurface(surface2, NULL, SDLscreen, &rectPant2);
+    pf.endProfileMethod("Draw - > blit");
 
 //Para imprimir FPS
     #if( SHOW_FPS_VERSION  == 1 )
@@ -822,8 +838,12 @@ extern "C" int SDL_main(int argc, char **argv) {
     surface1 = SDL_CreateRGBSurface(SDL_SWSURFACE, 256, 192, 16, 0x001F, 0x03E0, 0x7C00, 0);
     surface2 = SDL_CreateRGBSurface(SDL_SWSURFACE, 256, 192, 16, 0x001F, 0x03E0, 0x7C00, 0);
 	*/
-    surface1 = SDL_CreateRGBSurface(SDL_SWSURFACE, 256, 192, 16, 0x7c00, 0x03E0, 0x001f, 0);
-    surface2 = SDL_CreateRGBSurface(SDL_SWSURFACE, 256, 192, 16, 0x7c00, 0x03E0, 0x001f, 0);
+
+    //BLUE 0b111110000000000
+    //GREEN 0b1111100000
+    //RED 0b11111
+    surface2 = SDL_CreateRGBSurface(SDL_SWSURFACE, 256, 192, 16, 0b11110, 0b1111100000, 0b111110000000000, 0);
+    surface1 = SDL_CreateRGBSurface(SDL_SWSURFACE, 256, 192, 16, 0b11110, 0b1111100000, 0b111110000000000, 0);
 
 
     vdDejaLog("CREADAS SURFACES 1 y 2");
@@ -907,6 +927,8 @@ extern "C" int SDL_main(int argc, char **argv) {
 
   vdDejaLog("A BUCLE PPAL");
 
+  int profileSamples = 0;
+
   //while(!ctrls_cfg.sdl_quit) {
   while(1)
   {
@@ -922,12 +944,15 @@ extern "C" int SDL_main(int argc, char **argv) {
 			totalframessegundo = framessegundo;
 			framessegundo = 0;
 		}
-
+        pf.beginProfileMethod();
 		desmume_cycle(&ctrls_cfg);
+        pf.endProfileMethod("Desmume Cycle");
 		framessegundo++;
+
 		osd->update();
 
 //vdDejaLog("DRAW HUD");
+
 
 		DrawHUD();
 
@@ -935,6 +960,7 @@ extern "C" int SDL_main(int argc, char **argv) {
 
 
         //HCF PSP
+
         Gu_draw();
 
 //vdDejaLog("OSD CLEAR");
@@ -943,7 +969,8 @@ extern "C" int SDL_main(int argc, char **argv) {
 
 		//vdDejaLog("EJEC");
 
-
+    if(profileSamples % 100 == 0)
+        pf.outputStats();
 		//for ( int i = 0; i < my_config.frameskip; i++ ) {
 		for ( int i = 0; i < frameskip; i++ ) {
 
@@ -1066,7 +1093,7 @@ extern "C" int SDL_main(int argc, char **argv) {
   }
 
   vdDejaLog("SALE DE BUCLE PPAL");
-
+  pf.outputStats();
   /* Unload joystick */
   uninit_joy();
 
