@@ -1,23 +1,30 @@
 [STARDUST ENGINE PROFILER]
 [PROFILER NAME]: DeSmuME
 
-[METHOD NAME]: Desmume Cycle
-[Desmume Cycle]	NUM OF SAMPLES: 345 samples
-[Desmume Cycle]	AVERAGE TIME: 330.391ms
-[Desmume Cycle]	MINIMUM TIME: 84.264ms
-[Desmume Cycle]	MAXIMUM TIME: 8245.88ms
-[Desmume Cycle]	MEDIAN TIME: 215.306ms
+[METHOD NAME]: process_ctrls
+[process_ctrls]	NUM OF SAMPLES: 6601 samples
+[process_ctrls]	AVERAGE TIME: 9.64404e+147ms
+[process_ctrls]	MINIMUM TIME: 0.653ms
+[process_ctrls]	MAXIMUM TIME: 607.471ms
+[process_ctrls]	MEDIAN TIME: 0.654ms
 
-[METHOD NAME]: Draw - > memcpy
-[Draw - > memcpy]	NUM OF SAMPLES: 694 samples
-[Draw - > memcpy]	AVERAGE TIME: 3.11982ms
-[Draw - > memcpy]	MINIMUM TIME: 0.094ms
-[Draw - > memcpy]	MAXIMUM TIME: 1901.68ms
-[Draw - > memcpy]	MEDIAN TIME: 0.095ms
+[METHOD NAME]: update_keypad
+[update_keypad]	NUM OF SAMPLES: 6601 samples
+[update_keypad]	AVERAGE TIME: 2.44287e+205ms
+[update_keypad]	MINIMUM TIME: 0.004ms
+[update_keypad]	MAXIMUM TIME: 0.547ms
+[update_keypad]	MEDIAN TIME: 0.005ms
 
-[METHOD NAME]: Draw - > blit
-[Draw - > blit]	NUM OF SAMPLES: 694 samples
-[Draw - > blit]	AVERAGE TIME: 2.8458ms
-[Draw - > blit]	MINIMUM TIME: 2.66ms
-[Draw - > blit]	MAXIMUM TIME: 3.69ms
-[Draw - > blit]	MEDIAN TIME: 2.838ms
+[METHOD NAME]: NDS_EXEC
+[NDS_EXEC]	NUM OF SAMPLES: 6601 samples
+[NDS_EXEC]	AVERAGE TIME: 1.82006e+12ms
+[NDS_EXEC]	MINIMUM TIME: 10.259ms
+[NDS_EXEC]	MAXIMUM TIME: 143.185ms
+[NDS_EXEC]	MEDIAN TIME: 39.001ms
+
+[METHOD NAME]: spu_emulate_user
+[spu_emulate_user]	NUM OF SAMPLES: 6601 samples
+[spu_emulate_user]	AVERAGE TIME: 1.82006e+12ms
+[spu_emulate_user]	MINIMUM TIME: 0.002ms
+[spu_emulate_user]	MAXIMUM TIME: 0.841ms
+[spu_emulate_user]	MEDIAN TIME: 0.003ms

@@ -317,26 +317,20 @@ void Gu_draw()
     while (SDL_LockSurface(surface1) < 0)
         SDL_Delay(10);    //HCF: QUITABLE
 
-    pf.beginProfileMethod();
     memcpy(surface1->pixels, GPU_screen, 256 * 192 * 2);
-    pf.endProfileMethod("Draw - > memcpy");
 
     if (SDL_MUSTLOCK(surface1))
         SDL_UnlockSurface(surface1);
 
-    pf.beginProfileMethod();
     SDL_BlitSurface(surface1, NULL, SDLscreen, &rectPant1);
-    pf.endProfileMethod("Draw - > blit");
-
+    
     //Screen 2 - No stretch
     if (SDL_MUSTLOCK(surface2))
     while (SDL_LockSurface(surface2) < 0)
         SDL_Delay(10);    //HCF: QUITABLE
 
 
-    pf.beginProfileMethod();
     memcpy(surface2->pixels, &GPU_screen[256*192*2], 256 * 192 * 2);
-    pf.endProfileMethod("Draw - > memcpy");
 
     if (SDL_MUSTLOCK(surface2))
         SDL_UnlockSurface(surface2);
@@ -344,7 +338,6 @@ void Gu_draw()
 
     pf.beginProfileMethod();
     SDL_BlitSurface(surface2, NULL, SDLscreen, &rectPant2);
-    pf.endProfileMethod("Draw - > blit");
 
 //Para imprimir FPS
     #if( SHOW_FPS_VERSION  == 1 )
@@ -430,7 +423,6 @@ static void desmume_cycle(struct ctrls_event_config * cfg)
         process_ctrls_event( event, cfg);
     }
 	*/
-
 	process_ctrls_event( cfg);
 
     /* Update mouse position and click */
@@ -447,10 +439,13 @@ static void desmume_cycle(struct ctrls_event_config * cfg)
 
 	//vdDejaLog("NDS_EXEC  ");
 
+    pf.beginProfileMethod();
     NDS_exec<false>();
+    pf.endProfileMethod("NDS_EXEC");
 
 	//vdDejaLog("A SOUND  ");
 
+    pf.beginProfileMethod();
 	if ( enable_sound)
 	{
 		if(soundskipa == 0)
@@ -462,12 +457,9 @@ static void desmume_cycle(struct ctrls_event_config * cfg)
 			soundskipa = (soundskipa + 1) % iEnableSound;
 		}
 	}
-	/*
-	if(!soundskipa)
-		SPU_Emulate_user();
-	*/
+    pf.endProfileMethod("spu_emulate_user");
 
-	//vdDejaLog("CHINESE  ");
+
 }
 
 #ifdef HAVE_LIBAGG
@@ -944,9 +936,7 @@ extern "C" int SDL_main(int argc, char **argv) {
 			totalframessegundo = framessegundo;
 			framessegundo = 0;
 		}
-        pf.beginProfileMethod();
 		desmume_cycle(&ctrls_cfg);
-        pf.endProfileMethod("Desmume Cycle");
 		framessegundo++;
 
 		osd->update();
@@ -969,8 +959,12 @@ extern "C" int SDL_main(int argc, char **argv) {
 
 		//vdDejaLog("EJEC");
 
-    if(profileSamples % 100 == 0)
+    if (profileSamples % 100 == 0)
+    {
         pf.outputStats();
+    }
+    profileSamples++;
+
 		//for ( int i = 0; i < my_config.frameskip; i++ ) {
 		for ( int i = 0; i < frameskip; i++ ) {
 
