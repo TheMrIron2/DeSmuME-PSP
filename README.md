@@ -11,4 +11,11 @@ We are looking for help! We want your help if you are interested in:
 - Converting SDL calls to native PSP calls
 - Optimizing DSonPSP using assembly code
 
+@NT-Bourgeois-Iridescence-Technologies will start working more on this project towards the end of July.
+
+Top Priorities:
+- Revamp Graphics (huge performance boost)
+- Remove SDL (replace with stardust or something?)
+- Faster interpreter
+
 Come talk to us on our discord server at https://discord.gg/bePrj9W if you're interested in helping out!
