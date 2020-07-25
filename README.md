@@ -1,21 +1,10 @@
-# DSonPSP
+# DeSmuME PSP
 
-This branch of DSonPSP is a port of modern stable Desmume by HCFcoder.
-It is effectively _completely_ unoptimised in its current state, but we hope to fix this and get games running respectably.
+DeSmuME PSP is a port of modern stable DeSmuME based on the initial port by HCFcoder.
+It is _completely_ unoptimised in its current state, but we hope to fix this and get games running respectably.
 
-We are looking for help! We want your help if you are interested in:
+The plan, as described in the [2020 PSP Homebrew Dev Conference](https://youtu.be/VyHD5Hx1SYY?t=11768), is to use a dynamic rebalancing system to emulate both the ARM9 and ARM7 processors on the main CPU and Media Engine, depending on which CPU has more resources available at any given point. It is hoped that with both the main CPU and ME working in tandem, many games will run well.
 
-- Replacing slow ARM7 interpreter with Exophase's gpSP dynarec (thanks to Exophase for permission!)
-- Moving sound code to the Media Engine processor
-- Re-working graphics code to run on the GPU
-- Converting SDL calls to native PSP calls
-- Optimizing DSonPSP using assembly code
+Currently, the port is very basic. Everything is done on the main CPU (including all graphics and rendering) so it is very slow, and SDL is used as an abstraction layer for many parts (eg. input) rather than native PSP calls. This will hopefully change in the near future.
 
-@NT-Bourgeois-Iridescence-Technologies will start working more on this project towards the end of July.
-
-Top Priorities:
-- Revamp Graphics (huge performance boost)
-- Remove SDL (replace with stardust or something?)
-- Faster interpreter
-
-Come talk to us on our discord server at https://discord.gg/bePrj9W if you're interested in helping out!
+Any questions, or want to talk to the devs? Come and talk to us on our [discord server](https://discord.gg/bePrj9W) if you're interested!
