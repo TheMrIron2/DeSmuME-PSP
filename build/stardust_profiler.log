@@ -1,30 +1,16 @@
 [STARDUST ENGINE PROFILER]
 [PROFILER NAME]: DeSmuME
 
-[METHOD NAME]: process_ctrls
-[process_ctrls]	NUM OF SAMPLES: 6601 samples
-[process_ctrls]	AVERAGE TIME: 9.64404e+147ms
-[process_ctrls]	MINIMUM TIME: 0.653ms
-[process_ctrls]	MAXIMUM TIME: 607.471ms
-[process_ctrls]	MEDIAN TIME: 0.654ms
-
-[METHOD NAME]: update_keypad
-[update_keypad]	NUM OF SAMPLES: 6601 samples
-[update_keypad]	AVERAGE TIME: 2.44287e+205ms
-[update_keypad]	MINIMUM TIME: 0.004ms
-[update_keypad]	MAXIMUM TIME: 0.547ms
-[update_keypad]	MEDIAN TIME: 0.005ms
-
 [METHOD NAME]: NDS_EXEC
-[NDS_EXEC]	NUM OF SAMPLES: 6601 samples
-[NDS_EXEC]	AVERAGE TIME: 1.82006e+12ms
-[NDS_EXEC]	MINIMUM TIME: 10.259ms
-[NDS_EXEC]	MAXIMUM TIME: 143.185ms
-[NDS_EXEC]	MEDIAN TIME: 39.001ms
+[NDS_EXEC]	NUM OF SAMPLES: 1 samples
+[NDS_EXEC]	AVERAGE TIME: 6.00803e+15ms
+[NDS_EXEC]	MINIMUM TIME: 1486.49ms
+[NDS_EXEC]	MAXIMUM TIME: 1486.49ms
+[NDS_EXEC]	MEDIAN TIME: 1486.49ms
 
 [METHOD NAME]: spu_emulate_user
-[spu_emulate_user]	NUM OF SAMPLES: 6601 samples
-[spu_emulate_user]	AVERAGE TIME: 1.82006e+12ms
-[spu_emulate_user]	MINIMUM TIME: 0.002ms
-[spu_emulate_user]	MAXIMUM TIME: 0.841ms
-[spu_emulate_user]	MEDIAN TIME: 0.003ms
+[spu_emulate_user]	NUM OF SAMPLES: 1 samples
+[spu_emulate_user]	AVERAGE TIME: 6.00803e+15ms
+[spu_emulate_user]	MINIMUM TIME: 0.182ms
+[spu_emulate_user]	MAXIMUM TIME: 0.182ms
+[spu_emulate_user]	MEDIAN TIME: 0.182ms

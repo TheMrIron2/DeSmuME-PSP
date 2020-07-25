@@ -42,9 +42,11 @@
 #define MENU_RECTANGLE_OFFSET_Y 0
 #define MENU_RECTANGLE_OFFSET_X 16
 
+// Joystick Axis
+int joyx, joyy;
+
 //HCF SDL CONTROLS
 //gamepad stuff
-Sint16 joyx, joyy; //axes
 Sint16 blackbutton;
 Sint16 whitebutton;
 Sint16 abutton; //A button
@@ -446,164 +448,96 @@ char achCursor[] =
 	0, 0, 1, 1, 1, 0, 0
 };
 
-
-//HCF QUITO FONT
-void vdRellenaBotones(void)
+// MotoLegacy (7/25/2020) - rewrote vdRellenaBotones (vdGetButtons) using
+// native calls instead of relying on SDL.
+void vdGetButtons(void)
 {
-	SDL_PumpEvents();
-	//keys = SDL_GetKeyState(NULL);
-	SDL_JoystickUpdate(); //manual refresh of the gamepad(s)
-	//parse all gamepads
+	// Init the Pad
+	SceCtrlData pad;
+	sceCtrlSetSamplingCycle(0);
+	sceCtrlSetSamplingMode(PSP_CTRL_MODE_ANALOG);
+	sceCtrlReadBufferPositive(&pad, 1);
 
-	joyx = SDL_JoystickGetAxis(GAMEPAD, 0);
-	joyy = SDL_JoystickGetAxis(GAMEPAD, 1);
-	dpad = SDL_JoystickGetHat(GAMEPAD, 0);
-	blackbutton = SDL_JoystickGetButton(GAMEPAD, 4); //Black Button
-	whitebutton = SDL_JoystickGetButton(GAMEPAD, 5); //White Button, comprobarlo!!
-	abutton = SDL_JoystickGetButton(GAMEPAD, 0); //Get A-Button(0)
-	bbutton = SDL_JoystickGetButton(GAMEPAD, 1);
-	backbutton = SDL_JoystickGetButton(GAMEPAD, 9); //Get BACK-Button(9)
-	rstick = SDL_JoystickGetButton(GAMEPAD,11);
-	ltrigger = SDL_JoystickGetButton(GAMEPAD,6);
-	rtrigger = SDL_JoystickGetButton(GAMEPAD,7);
-	xbutton = SDL_JoystickGetButton(GAMEPAD,2);
-	ybutton = SDL_JoystickGetButton(GAMEPAD,3);
-	startbutton = SDL_JoystickGetButton(GAMEPAD,8);
-	lstick = SDL_JoystickGetButton(GAMEPAD,10);
+	// Update Joystick X/Y Axis
+	joyx = pad.Lx - 127;
+	joyy = pad.Ly - 127;
 
-	if(startbutton)
-	{
-	    ashBotones[BOTON_START] = 1;
+	// Face Buttons
+	// TODO: Rename variables to match Face Buttons and be in English.
+	if (pad.Buttons & PSP_CTRL_SQUARE) {
+		ashBotones[BOTON_XX] = 1;
+	} else {
+		ashBotones[BOTON_XX] = 0;
 	}
-	else
-	{
-	    ashBotones[BOTON_START] = 0;
+	if (pad.Buttons & PSP_CTRL_CROSS) {
+		ashBotones[BOTON_AA] = 1;
+	} else {
+		ashBotones[BOTON_AA] = 0;
 	}
-	if(ltrigger)
-	{
-	    ashBotones[BOTON_LTRIGGER] = 1;
+	if (pad.Buttons & PSP_CTRL_TRIANGLE) {
+		ashBotones[BOTON_YY] = 1;
+	} else {
+		ashBotones[BOTON_YY] = 0;
 	}
-	else
-	{
-	    ashBotones[BOTON_LTRIGGER] = 0;
-	}
-	if(rtrigger)
-	{
-	    ashBotones[BOTON_RTRIGGER] = 1;
-	}
-	else
-	{
-	    ashBotones[BOTON_RTRIGGER] = 0;
-	}
-	if(rstick)
-	{
-	    ashBotones[BOTON_RTHUMBSTICK] = 1;
-	}
-	else
-	{
-	    ashBotones[BOTON_RTHUMBSTICK] = 0;
-	}
-	if(backbutton)
-	{
-	    ashBotones[BOTON_BACK] = 1;
-	}
-	else
-	{
-	    ashBotones[BOTON_BACK] = 0;
-	}
-	if(abutton)
-	{
-	    ashBotones[BOTON_AA] = 1;
-	}
-	else
-	{
-	    ashBotones[BOTON_AA] = 0;
-	}
-	if(blackbutton)
-	{
-	    ashBotones[BOTON_NEGRO] = 1;
-	}
-	else
-	{
-	    ashBotones[BOTON_NEGRO] = 0;
-	}
-	if(whitebutton)
-	{
-	    ashBotones[BOTON_BLANCO] = 1;
-	}
-	else
-	{
-	    ashBotones[BOTON_BLANCO] = 0;
-	}
-	if(bbutton)
-	{
-	    ashBotones[BOTON_BB] = 1;
-	}
-	else
-	{
-	    ashBotones[BOTON_BB] = 0;
-	}
-	if(ybutton)
-	{
-	    ashBotones[BOTON_YY] = 1;
-	}
-	else
-	{
-	    ashBotones[BOTON_YY] = 0;
-	}
-	if(xbutton)
-	{
-	    ashBotones[BOTON_XX] = 1;
-	}
-	else
-	{
-	    ashBotones[BOTON_XX] = 0;
+	if (pad.Buttons & PSP_CTRL_CIRCLE) {
+		ashBotones[BOTON_BB] = 1;
+	} else {
+		ashBotones[BOTON_BB] = 0;
 	}
 
-	if(dpad & SDL_HAT_UP)
-	{
+	// Directional Pad
+	// TODO: Rename variables to be in English.
+	if (pad.Buttons & PSP_CTRL_UP) {
 		ashBotones[BOTON_ARRIBA] = 1;
+	} else {
+		ashBotones[BOTON_ARRIBA] = 0;
 	}
-	else
-	{
-	    ashBotones[BOTON_ARRIBA] = 0;
-	}
-	if(dpad & SDL_HAT_DOWN)
-	{
+	if (pad.Buttons & PSP_CTRL_DOWN) {
 		ashBotones[BOTON_ABAJO] = 1;
+	} else {
+		ashBotones[BOTON_ABAJO] = 0;
 	}
-	else
-	{
-	    ashBotones[BOTON_ABAJO] = 0;
-	}
-	if(dpad & SDL_HAT_LEFT)
-	{
+	if (pad.Buttons & PSP_CTRL_LEFT) {
 		ashBotones[BOTON_IZQUIERDA] = 1;
+	} else {
+		ashBotones[BOTON_IZQUIERDA] = 0;
 	}
-	else
-	{
-	    ashBotones[BOTON_IZQUIERDA] = 0;
-	}
-	if(dpad & SDL_HAT_RIGHT)
-	{
+	if (pad.Buttons & PSP_CTRL_RIGHT) {
 		ashBotones[BOTON_DERECHA] = 1;
-	}
-	else
-	{
-	    ashBotones[BOTON_DERECHA] = 0;
+	} else {
+		ashBotones[BOTON_DERECHA] = 0;
 	}
 
-	if(lstick)
-	{
-	    ashBotones[BOTON_LTHUMBSTICK] = 1;
+	// Left and Right Triggers
+	if (pad.Buttons & PSP_CTRL_LTRIGGER) {
+		ashBotones[BOTON_LTRIGGER] = 1;
+	} else {
+		ashBotones[BOTON_LTRIGGER] = 0;
 	}
-	else
-	{
-	    ashBotones[BOTON_LTHUMBSTICK] = 0;
+	if (pad.Buttons & PSP_CTRL_RTRIGGER) {
+		ashBotones[BOTON_RTRIGGER] = 1;
+	} else {
+		ashBotones[BOTON_RTRIGGER] = 0;
 	}
 
+	// Start, Select
+	if (pad.Buttons & PSP_CTRL_START) {
+		ashBotones[BOTON_START] = 1;
+	} else {
+		ashBotones[BOTON_START] = 0;
+	}
+	if (pad.Buttons & PSP_CTRL_SELECT) {
+		ashBotones[BOTON_BACK] = 1;
+	} else {
+		ashBotones[BOTON_BACK] = 0;
+	}
 
-
+	// Music Note (WHITE)
+	if (pad.Buttons & PSP_CTRL_NOTE) {
+		ashBotones[BOTON_BLANCO] = 1;
+	} else {
+		ashBotones[BOTON_BLANCO] = 0;
+	}
 }
 
 void DrawCursor(short * screen, unsigned int x, unsigned int y)
@@ -750,7 +684,7 @@ void vdXBOptionsMenu(int iMenuInicial)
 	{
 
 		//g_input.Update();
-		vdRellenaBotones();
+		vdGetButtons();
 		//if(g_input.IsButtonPressed(Generic_DPadUp))
 		if( ashBotones[BOTON_ARRIBA] )
 		{
@@ -1865,203 +1799,109 @@ process_joystick_events( u16 *keypad) {
 
 u16 shift_pressed;
 
-void
-//process_ctrls_event( SDL_Event& event,
-process_ctrls_event( struct ctrls_event_config *cfg)
+// MotoLegacy (7/25/2020) - cleaned this function up a bit, rewrote some
+// variables in english. original creds to HCF
+void process_ctrls_event(struct ctrls_event_config *cfg)
 {
+	int i;
+	bool MouseUpdate; // MotoLegacy - originally an int.. lol
+	int x, y;
+	unsigned short key;
 
-//HCF
-  int i, iMouseCambiado;
-  signed short x, y;
-  unsigned short key;
+	int cause_quit = 0;
 
-  int cause_quit = 0;
+	vdGetButtons();
 
-  //HCF Botones
-  vdRellenaBotones();
-  for(i=0;i<12;i++)
-  {
-	//HCF De momento solo horizontal
-	/****
-	if(vertical)
-	{
-		if (ashBotones[default_xb_cfg_v[i]])
-	  //if (pad.Buttons & default_psp_cfg_v[i])
-			ADD_KEY( *keypad, KEYMASK_(i));
+	for (i = 0; i < 12; i++) {
+		if (ashBotones[default_xb_cfg_h[i]])
+			ADD_KEY(cfg->keypad, KEYMASK_(i));
 		else
-			RM_KEY( *keypad, KEYMASK_(i));
+			RM_KEY(cfg->keypad, KEYMASK_(i));
 	}
-	else
-	{
-	****/
-		//if (pad.Buttons & default_psp_cfg_h[i])
-		//if(ashBotones[default_xb_cfg_h[i]])
-	    if(ashBotones[default_xb_cfg_h[i]])
-			ADD_KEY( cfg->keypad, KEYMASK_(i));
-			//ADD_KEY( *keypad, KEYMASK_(i));
-		else
-			RM_KEY( cfg->keypad, KEYMASK_(i));
-			//RM_KEY( *keypad, KEYMASK_(i));
-	/***}****/
-  }
 
-  //HCF Movimiento del puntero
-		x = SDL_JoystickGetAxis(GAMEPAD, 0),
-		y = SDL_JoystickGetAxis(GAMEPAD, 1);
+	// Touchscreen Pointer Movement
+	x = joyx;
+	y = joyy;
 
-		iMouseCambiado = 0;
-		if (x > 16384)
-		{
+	MouseUpdate = false;
 
-			if( mouse.x < 256 - iMouseSpeed )
-			{
-				mouse.x += iMouseSpeed;
-				iMouseCambiado = 1;
-			}
+	// Update Mouse Position
+	// FIXME: Cull SDL
+	SDL_WarpMouse(mouse.x, mouse.y);
+
+	// X Axis
+	if (x > 15 || x < -15) {
+		mouse.x += (x/5);
+	}
+
+	// Y Axis
+	if (y > 15 || y < -15) {
+		mouse.y += (y/5);
+	}
+
+	// MotoLegacy - This is just one big waste of instructions at the moment.
+	// TODO - Do any MouseWarping for Graphics Mode, if needbe.
+	/*
+	// Warp Mouse depending on Graphics Mode
+	if (MouseUpdate == true) {
+		// iGraphicsMode
+		switch (iModoGrafico) {
+			case 1:
+			case 2:
+				break;
+			default:
+				//HCF Una pantalla encima de otra
+				switch (iModoStretchNuevo) {
+					case STRETCH_MODE_FULL:
+					case STRETCH_MODE_HALF:
+					case STRETCH_MODE_NONE:
+						break;
+				}
 		}
-		if (x < -16384)
-		{
+	}*/
 
-			if( mouse.x >= iMouseSpeed )
-			{
-				mouse.x -= iMouseSpeed;
-				iMouseCambiado = 1;
-			}
-		}
-		if (y > 16384)
-		{
-			if( mouse.y < 192 - iMouseSpeed )
-			{
-				mouse.y += iMouseSpeed;
-				iMouseCambiado = 1;
-			}
-		}
-		if (y < -16384)
-		{
-			if( mouse.y >= iMouseSpeed )
-			{
-				mouse.y -= iMouseSpeed;
-				iMouseCambiado = 1;
-			}
-		}
-
-		if(iMouseCambiado)
-		{
-			switch(iModoGrafico)
-			{
-				case 2:
-				case 1:
-					//HCF Solo pantalla 1 o 2
-					//HCF FALTA D3D
-//					WarpMouse(mouse.x + PANTALLA2_UNICA_X, mouse.y + PANTALLA2_UNICA_Y);
-					break;
-				case 0:
-				default:
-					//HCF Una pantalla encima de otra
-					switch(iModoStretchNuevo)
-					{
-						case STRETCH_MODE_FULL:
-							//HCF FALTA D3D
-							//WarpMouse(mouse.x * 2, mouse.y + PANTALLA2_Y);
-							break;
-						case STRETCH_MODE_HALF:
-							//HCF FALTA D3D
-							//WarpMouse((mouse.x * 1.5) + (PANTALLA2_X / 2), mouse.y + PANTALLA2_Y);
-							break;
-						case STRETCH_MODE_NONE:
-						default:
-							//HCF FALTA D3D
-//							WarpMouse(mouse.x + PANTALLA2_X, mouse.y + PANTALLA2_Y);
-							break;
-					}
-					break;
-			}
-		}
-	//HCF Movimiento del puntero
-
-	//HCF Click o Drag and drop
-	if (ashBotones[BOTON_BLANCO])
-	{
+	// Drag and Drop Mode(??)
+	if (ashBotones[BOTON_BLANCO]) {
 		mouse.down = TRUE;
-	}
-	else
-	{
-		if(mouse.down == TRUE)
-		{
+	} else {
+		if (mouse.down == TRUE) {
 			mouse.click = TRUE;
 			mouse.down = FALSE;
-		}
-		else
-		{
+		} else {
 			mouse.click = FALSE;
 		}
 	}
-	//HCF Click o Drag and drop
 
-	//HCF Toggle graphical mode
-	if (ashBotones[BOTON_NEGRO])
-	{
-		if( !iCambiandoModoGrafico )
-		{
+	// Graphics Mode Toggle
+	if (ashBotones[BOTON_NEGRO]) {
+		// iChangingGraphicsMode
+		if (!iCambiandoModoGrafico) {
 			iModoGraficoNuevo = ((iModoGrafico+1)%3);
 			iCambiandoModoGrafico = 1;
 
-			switch(iModoGraficoNuevo)
-			{
-				case 2:
+			// MotoLegacy - Just another waste of precious cycles..
+			// TODO - Do any MouseWarping for Graphics Mode, if needbe.
+			/*switch (iModoGraficoNuevo) {
 				case 1:
-					//HCF Solo pantalla 1 o 2
-					//HCF FALTA D3D
-//					WarpMouse(mouse.x + PANTALLA2_UNICA_X, mouse.y + PANTALLA2_UNICA_Y);
+				case 2:
 					break;
-				case 0:
 				default:
-					//HCF Una pantalla encima de otra
-					switch(iModoStretchNuevo)
-					{
+					switch (iModoStretchNuevo) {
 						case STRETCH_MODE_FULL:
-							//HCF FALTA D3D
-//							WarpMouse(mouse.x * 2, mouse.y + PANTALLA2_Y);
-							break;
 						case STRETCH_MODE_HALF:
-							//HCF FALTA D3D
-//							WarpMouse((mouse.x * 1.5) + (PANTALLA2_X / 2), mouse.y + PANTALLA2_Y);
-							break;
 						case STRETCH_MODE_NONE:
-						default:
-							//HCF FALTA D3D
-//							WarpMouse(mouse.x + PANTALLA2_X, mouse.y + PANTALLA2_Y);
 							break;
 					}
 					break;
-			}
+			}*/
 		}
-	}
-	else if(iCambiandoModoGrafico)
-	{
+	} else if (iCambiandoModoGrafico) {
 		iCambiandoModoGrafico = 0;
 	}
 
-	//HCF Toggle stretch mode
-	//HCF Changed to: Toggle cursor color
-	if (ashBotones[BOTON_RTHUMBSTICK])
-	{
-		if( !iCambiandoColorCursor )
-		{
-			shCurrentCursorColor = ((shCurrentCursorColor+1)%MAX_CURSOR_COLORS);
-			iCambiandoColorCursor = 1;
-		}
-	}
-	else if(iCambiandoColorCursor)
-	{
-		iCambiandoColorCursor = 0;
-	}
-
-	//HCF Toggle display info (FPS and free memory)
-	if (ashBotones[BOTON_LTHUMBSTICK])
-	{
-		if( !iCambiandoDisplayInfo )
-		{
+	// Toggle Display Info (FPS and Memory Free)
+	if (ashBotones[BOTON_LTHUMBSTICK]) {
+		if (!iCambiandoDisplayInfo) {
 			iShowFramesAndMemory = ((iShowFramesAndMemory+1)%2);
 			iCambiandoDisplayInfo = 1;
 		}
@@ -2071,145 +1911,22 @@ process_ctrls_event( struct ctrls_event_config *cfg)
 		iCambiandoDisplayInfo = 0;
 	}
 
-  //HCF In-game menu
-  if ( (!ashBotones[BOTON_START]) && (ashBotones[BOTON_BACK]) )
-      vdXBOptionsMenu(0);
+	// Toggle Cursor Color
+	if (ashBotones[BOTON_RTHUMBSTICK]) {
+		if (!iCambiandoColorCursor) {
+			shCurrentCursorColor = ((shCurrentCursorColor+1)%MAX_CURSOR_COLORS);
+			iCambiandoColorCursor = 1;
+		}
+	}
+	else if (iCambiandoColorCursor) {
+		iCambiandoColorCursor = 0;
+	}
 
-  //HCF Salir
-  if (ashBotones[BOTON_START] && ashBotones[BOTON_BACK])
-  	exit(0); //XLaunchNewImage( "D:\\default.xbe", NULL);
+	// In-Game Menu
+	if ((!ashBotones[BOTON_START]) && (ashBotones[BOTON_BACK]))
+      	vdXBOptionsMenu(0);
 
-
-    /*******
-  u16 key;
-  if ( !do_process_joystick_events( &cfg->keypad, &event)) {
-    switch (event.type)
-    {
-      case SDL_VIDEORESIZE:
-        cfg->resize_cb( event.resize.w, event.resize.h, cfg->screen_texture);
-        break;
-
-      case SDL_ACTIVEEVENT:
-        if (cfg->auto_pause && (event.active.state & SDL_APPINPUTFOCUS )) {
-          if (event.active.gain) {
-            cfg->focused = 1;
-            SPU_Pause(0);
-            osd->addLine("Auto pause disabled");
-          } else {
-            cfg->focused = 0;
-            SPU_Pause(1);
-          }
-        }
-        break;
-
-      case SDL_KEYDOWN:
-        switch(event.key.keysym.sym){
-            case SDLK_LSHIFT:
-                shift_pressed |= 1;
-                break;
-            case SDLK_RSHIFT:
-                shift_pressed |= 2;
-                break;
-            default:
-                key = lookup_key(event.key.keysym.sym);
-                ADD_KEY( cfg->keypad, key );
-                break;
-        }
-        break;
-
-      case SDL_KEYUP:
-        switch(event.key.keysym.sym){
-            case SDLK_ESCAPE:
-                cfg->sdl_quit = 1;
-                break;
-
-#ifdef FAKE_MIC
-            case SDLK_m:
-                cfg->fake_mic = !cfg->fake_mic;
-                Mic_DoNoise(cfg->fake_mic);
-                if (cfg->fake_mic)
-                  osd->addLine("Fake mic enabled");
-                else
-                  osd->addLine("Fake mic disabled");
-                break;
-#endif
-
-            case SDLK_o:
-                cfg->boost = !cfg->boost;
-                if (cfg->boost)
-                  osd->addLine("Boost mode enabled");
-                else
-                  osd->addLine("Boost mode disabled");
-                break;
-
-            case SDLK_LSHIFT:
-                shift_pressed &= ~1;
-                break;
-            case SDLK_RSHIFT:
-                shift_pressed &= ~2;
-                break;
-
-            case SDLK_F1:
-            case SDLK_F2:
-            case SDLK_F3:
-            case SDLK_F4:
-            case SDLK_F5:
-            case SDLK_F6:
-            case SDLK_F7:
-            case SDLK_F8:
-            case SDLK_F9:
-            case SDLK_F10:
-                int prevexec;
-                prevexec = execute;
-                execute = FALSE;
-                SPU_Pause(1);
-                if(!shift_pressed){
-                    loadstate_slot(event.key.keysym.sym - SDLK_F1 + 1);
-                }else{
-                    savestate_slot(event.key.keysym.sym - SDLK_F1 + 1);
-                }
-                execute = prevexec;
-                SPU_Pause(!execute);
-                break;
-            default:
-                key = lookup_key(event.key.keysym.sym);
-                RM_KEY( cfg->keypad, key );
-                break;
-        }
-        break;
-
-      case SDL_MOUSEBUTTONDOWN:
-        if(event.button.button==1)
-          mouse.down = TRUE;
-
-      case SDL_MOUSEMOTION:
-        if(!mouse.down)
-          break;
-        else {
-          signed long scaled_x =
-            screen_to_touch_range( event.button.x,
-                                     cfg->nds_screen_size_ratio);
-          signed long scaled_y =
-            screen_to_touch_range( event.button.y,
-                                     cfg->nds_screen_size_ratio);
-
-          if( scaled_y >= 192)
-            set_mouse_coord( scaled_x, scaled_y - 192);
-        }
-        break;
-
-      case SDL_MOUSEBUTTONUP:
-        if(mouse.down) mouse.click = TRUE;
-        mouse.down = FALSE;
-        break;
-
-      case SDL_QUIT:
-        cfg->sdl_quit = 1;
-        break;
-
-      default:
-        break;
-    }
-  }
-  *********/
+	// Quit Application
+	if (ashBotones[BOTON_START] && ashBotones[BOTON_BACK])
+		exit(0);
 }

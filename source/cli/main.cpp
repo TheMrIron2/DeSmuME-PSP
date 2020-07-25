@@ -464,7 +464,7 @@ static void desmume_cycle(struct ctrls_event_config * cfg)
     cfg->nds_screen_size_ratio = nds_screen_size_ratio;
 
     /* Look for queued events and update keypad status */
-    /* IMPORTANT: Reenable joystick events iif needed. */
+    /* IMPORTANT: Reenable joystick events if needed. */
     if(SDL_JoystickEventState(SDL_QUERY) == SDL_IGNORE)
       SDL_JoystickEventState(SDL_ENABLE);
 
