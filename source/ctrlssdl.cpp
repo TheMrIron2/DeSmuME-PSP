@@ -42,9 +42,11 @@
 #define MENU_RECTANGLE_OFFSET_Y 0
 #define MENU_RECTANGLE_OFFSET_X 16
 
+// Joystick Axis
+int joyx, joyy;
+
 //HCF SDL CONTROLS
 //gamepad stuff
-Sint16 joyx, joyy; //axes
 Sint16 blackbutton;
 Sint16 whitebutton;
 Sint16 abutton; //A button
@@ -457,10 +459,8 @@ void vdGetButtons(void)
 	sceCtrlReadBufferPositive(&pad, 1);
 
 	// Update Joystick X/Y Axis
-	// (Multiply by 258 to preserve SDL_JoystickGetAxis usage compat.)
-	// TODO: Not do this anymore ^ lol
-	joyx = pad.Lx * 258;
-	joyy = pad.Ly * 258;
+	joyx = pad.Lx - 127;
+	joyy = pad.Ly - 127;
 
 	// Face Buttons
 	// TODO: Rename variables to match Face Buttons and be in English.
@@ -1805,7 +1805,7 @@ void process_ctrls_event(struct ctrls_event_config *cfg)
 {
 	int i;
 	bool MouseUpdate; // MotoLegacy - originally an int.. lol
-	signed short x, y;
+	int x, y;
 	unsigned short key;
 
 	int cause_quit = 0;
@@ -1825,30 +1825,18 @@ void process_ctrls_event(struct ctrls_event_config *cfg)
 
 	MouseUpdate = false;
 
+	// Update Mouse Position
+	// FIXME: Cull SDL
+	SDL_WarpMouse(mouse.x, mouse.y);
+
 	// X Axis
-	if (x > 16384) {
-		if (mouse.x < 256 - iMouseSpeed) {
-			mouse.x += iMouseSpeed;
-			MouseUpdate = true;
-		}
-	} else if (x < -16384) {
-		if (mouse.x >= iMouseSpeed) {
-			mouse.x -= iMouseSpeed;
-			MouseUpdate = true;
-		}
+	if (x > 15 || x < -15) {
+		mouse.x += (x/5);
 	}
 
 	// Y Axis
-	if (y > 16384) {
-		if (mouse.y < 192 - iMouseSpeed) {
-			mouse.y += iMouseSpeed;
-			MouseUpdate = true;
-		}
-	} else if (y < -16384) {
-		if (mouse.y >= iMouseSpeed) {
-			mouse.y -= iMouseSpeed;
-			MouseUpdate = true;
-		}
+	if (y > 15 || y < -15) {
+		mouse.y += (y/5);
 	}
 
 	// MotoLegacy - This is just one big waste of instructions at the moment.

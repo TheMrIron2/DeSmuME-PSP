@@ -281,7 +281,7 @@ void vdDrawStylus()
 	else
 		y -= 3;
 
-	DrawCursor((short*)GPU_screen, x, y);
+	//DrawCursor((short*)GPU_screen, x, y);
 	//DrawText((short*)GPU_screen, x, y, false, "+");
 }
 
