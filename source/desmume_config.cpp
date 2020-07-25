@@ -18,7 +18,7 @@
 #include <glib.h>
 #include <glib/gstdio.h>
 
-#include "ctrlssdl.h"
+#include "ctrl.h"
 #include "desmume_config.h"
 
 static const gchar *desmume_old_config_file = ".desmume.ini";

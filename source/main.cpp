@@ -80,7 +80,7 @@ PSP_MAIN_THREAD_STACK_SIZE_KB(256);
 #include "GPU.h"
 #include "SPU.h"
 #include "sndsdl.h"
-#include "ctrlssdl.h"
+#include "ctrl.h"
 #include "slot2.h"
 
 #include "render3D.h"

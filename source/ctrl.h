@@ -16,8 +16,8 @@
 	along with the this software.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#ifndef CTRLSSDL_H
-#define CTRLSSDL_H
+#ifndef CTRL_H
+#define CTRL_H
 
 #ifdef HAVE_GL_GL_H
 #include <GL/gl.h>
@@ -53,25 +53,26 @@
 
 //HCF SDL CONTROLS
 #define MOUSE_DEFAULT_SPEED 3
-#define NUM_BOTONES 20
-#define BOTON_ARRIBA 0
-#define BOTON_ABAJO 1
-#define BOTON_IZQUIERDA 2
-#define BOTON_DERECHA 3
-#define BOTON_AA 4
-#define BOTON_BB 5
-#define BOTON_XX 6
-#define BOTON_YY 7
-#define BOTON_BLANCO 8
-#define BOTON_NEGRO 9
-#define BOTON_START 10
-#define BOTON_BACK 11
-#define BOTON_LTRIGGER 12
-#define BOTON_RTRIGGER 13
-#define BOTON_LTHUMBSTICK 14
-#define BOTON_RTHUMBSTICK 15
-extern SDL_Joystick *GAMEPAD; //Gamepad
-extern short ashBotones[NUM_BOTONES];
+
+// ==== Input ==== //
+enum
+{
+    BUTTON_UP,
+    BUTTON_DOWN,
+    BUTTON_LEFT,
+    BUTTON_RIGHT,
+    BUTTON_CROSS,
+    BUTTON_SQUARE,
+    BUTTON_CIRLCE,
+    BUTTON_TRIANGLE,
+    BUTTON_LTRIGGER,
+    BUTTON_RTRIGGER,
+    BUTTON_START,
+    BUTTON_SELECT,
+    BUTTON_NOTE,
+    NUM_BUTTONS
+};
+extern short Buttons[NUM_BUTTONS];
 
 extern TTF_Font *font;
 extern SDL_Surface *SDLscreen;
@@ -202,4 +203,4 @@ process_joystick_events( u16 *keypad);
 
 void DrawCursor(short * screen, unsigned int x, unsigned int y);
 
-#endif /* CTRLSSDL_H */
+#endif /* CTRL_H */
