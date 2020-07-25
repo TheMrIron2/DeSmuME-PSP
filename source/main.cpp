@@ -20,8 +20,8 @@
  * Boston, MA 02111-1307, USA.
  */
 
-#include <SDL.h>
-#include <SDL_thread.h>
+#include <SDL/SDL.h>
+#include <SDL/SDL_thread.h>
 #include <stdlib.h>
 #include <string.h>
 
