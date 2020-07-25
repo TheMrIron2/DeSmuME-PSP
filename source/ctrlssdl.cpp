@@ -446,165 +446,98 @@ char achCursor[] =
 	0, 0, 1, 1, 1, 0, 0
 };
 
-
-//HCF QUITO FONT
-// MotoLegacy -- vdInitButtons??
-void vdRellenaBotones(void)
+// MotoLegacy (7/25/2020) - rewrote vdRellenaBotones (vdGetButtons) using
+// native calls instead of relying on SDL.
+void vdGetButtons(void)
 {
-	SDL_PumpEvents();
-	//keys = SDL_GetKeyState(NULL);
-	SDL_JoystickUpdate(); //manual refresh of the gamepad(s)
-	//parse all gamepads
+	// Init the Pad
+	SceCtrlData pad;
+	sceCtrlSetSamplingCycle(0);
+	sceCtrlSetSamplingMode(PSP_CTRL_MODE_ANALOG);
+	sceCtrlReadBufferPositive(&pad, 1);
 
-	joyx = SDL_JoystickGetAxis(GAMEPAD, 0);
-	joyy = SDL_JoystickGetAxis(GAMEPAD, 1);
-	dpad = SDL_JoystickGetHat(GAMEPAD, 0);
-	blackbutton = SDL_JoystickGetButton(GAMEPAD, 4); //Black Button
-	whitebutton = SDL_JoystickGetButton(GAMEPAD, 5); //White Button, comprobarlo!!
-	abutton = SDL_JoystickGetButton(GAMEPAD, 0); //Get A-Button(0)
-	bbutton = SDL_JoystickGetButton(GAMEPAD, 1);
-	backbutton = SDL_JoystickGetButton(GAMEPAD, 9); //Get BACK-Button(9)
-	rstick = SDL_JoystickGetButton(GAMEPAD,11);
-	ltrigger = SDL_JoystickGetButton(GAMEPAD,6);
-	rtrigger = SDL_JoystickGetButton(GAMEPAD,7);
-	xbutton = SDL_JoystickGetButton(GAMEPAD,2);
-	ybutton = SDL_JoystickGetButton(GAMEPAD,3);
-	startbutton = SDL_JoystickGetButton(GAMEPAD,8);
-	lstick = SDL_JoystickGetButton(GAMEPAD,10);
+	// Update Joystick X/Y Axis
+	// (Multiply by 258 to preserve SDL_JoystickGetAxis usage compat.)
+	// TODO: Not do this anymore ^ lol
+	joyx = pad.Lx * 258;
+	joyy = pad.Ly * 258;
 
-	if(startbutton)
-	{
-	    ashBotones[BOTON_START] = 1;
+	// Face Buttons
+	// TODO: Rename variables to match Face Buttons and be in English.
+	if (pad.Buttons & PSP_CTRL_SQUARE) {
+		ashBotones[BOTON_XX] = 1;
+	} else {
+		ashBotones[BOTON_XX] = 0;
 	}
-	else
-	{
-	    ashBotones[BOTON_START] = 0;
+	if (pad.Buttons & PSP_CTRL_CROSS) {
+		ashBotones[BOTON_AA] = 1;
+	} else {
+		ashBotones[BOTON_AA] = 0;
 	}
-	if(ltrigger)
-	{
-	    ashBotones[BOTON_LTRIGGER] = 1;
+	if (pad.Buttons & PSP_CTRL_TRIANGLE) {
+		ashBotones[BOTON_YY] = 1;
+	} else {
+		ashBotones[BOTON_YY] = 0;
 	}
-	else
-	{
-	    ashBotones[BOTON_LTRIGGER] = 0;
-	}
-	if(rtrigger)
-	{
-	    ashBotones[BOTON_RTRIGGER] = 1;
-	}
-	else
-	{
-	    ashBotones[BOTON_RTRIGGER] = 0;
-	}
-	if(rstick)
-	{
-	    ashBotones[BOTON_RTHUMBSTICK] = 1;
-	}
-	else
-	{
-	    ashBotones[BOTON_RTHUMBSTICK] = 0;
-	}
-	if(backbutton)
-	{
-	    ashBotones[BOTON_BACK] = 1;
-	}
-	else
-	{
-	    ashBotones[BOTON_BACK] = 0;
-	}
-	if(abutton)
-	{
-	    ashBotones[BOTON_AA] = 1;
-	}
-	else
-	{
-	    ashBotones[BOTON_AA] = 0;
-	}
-	if(blackbutton)
-	{
-	    ashBotones[BOTON_NEGRO] = 1;
-	}
-	else
-	{
-	    ashBotones[BOTON_NEGRO] = 0;
-	}
-	if(whitebutton)
-	{
-	    ashBotones[BOTON_BLANCO] = 1;
-	}
-	else
-	{
-	    ashBotones[BOTON_BLANCO] = 0;
-	}
-	if(bbutton)
-	{
-	    ashBotones[BOTON_BB] = 1;
-	}
-	else
-	{
-	    ashBotones[BOTON_BB] = 0;
-	}
-	if(ybutton)
-	{
-	    ashBotones[BOTON_YY] = 1;
-	}
-	else
-	{
-	    ashBotones[BOTON_YY] = 0;
-	}
-	if(xbutton)
-	{
-	    ashBotones[BOTON_XX] = 1;
-	}
-	else
-	{
-	    ashBotones[BOTON_XX] = 0;
+	if (pad.Buttons & PSP_CTRL_CIRCLE) {
+		ashBotones[BOTON_BB] = 1;
+	} else {
+		ashBotones[BOTON_BB] = 0;
 	}
 
-	if(dpad & SDL_HAT_UP)
-	{
+	// Directional Pad
+	// TODO: Rename variables to be in English.
+	if (pad.Buttons & PSP_CTRL_UP) {
 		ashBotones[BOTON_ARRIBA] = 1;
+	} else {
+		ashBotones[BOTON_ARRIBA] = 0;
 	}
-	else
-	{
-	    ashBotones[BOTON_ARRIBA] = 0;
-	}
-	if(dpad & SDL_HAT_DOWN)
-	{
+	if (pad.Buttons & PSP_CTRL_DOWN) {
 		ashBotones[BOTON_ABAJO] = 1;
+	} else {
+		ashBotones[BOTON_ABAJO] = 0;
 	}
-	else
-	{
-	    ashBotones[BOTON_ABAJO] = 0;
-	}
-	if(dpad & SDL_HAT_LEFT)
-	{
+	if (pad.Buttons & PSP_CTRL_LEFT) {
 		ashBotones[BOTON_IZQUIERDA] = 1;
+	} else {
+		ashBotones[BOTON_IZQUIERDA] = 0;
 	}
-	else
-	{
-	    ashBotones[BOTON_IZQUIERDA] = 0;
-	}
-	if(dpad & SDL_HAT_RIGHT)
-	{
+	if (pad.Buttons & PSP_CTRL_RIGHT) {
 		ashBotones[BOTON_DERECHA] = 1;
-	}
-	else
-	{
-	    ashBotones[BOTON_DERECHA] = 0;
+	} else {
+		ashBotones[BOTON_DERECHA] = 0;
 	}
 
-	if(lstick)
-	{
-	    ashBotones[BOTON_LTHUMBSTICK] = 1;
+	// Left and Right Triggers
+	if (pad.Buttons & PSP_CTRL_LTRIGGER) {
+		ashBotones[BOTON_LTRIGGER] = 1;
+	} else {
+		ashBotones[BOTON_LTRIGGER] = 0;
 	}
-	else
-	{
-	    ashBotones[BOTON_LTHUMBSTICK] = 0;
+	if (pad.Buttons & PSP_CTRL_RTRIGGER) {
+		ashBotones[BOTON_RTRIGGER] = 1;
+	} else {
+		ashBotones[BOTON_RTRIGGER] = 0;
 	}
 
+	// Start, Select
+	if (pad.Buttons & PSP_CTRL_START) {
+		ashBotones[BOTON_START] = 1;
+	} else {
+		ashBotones[BOTON_START] = 0;
+	}
+	if (pad.Buttons & PSP_CTRL_SELECT) {
+		ashBotones[BOTON_BACK] = 1;
+	} else {
+		ashBotones[BOTON_BACK] = 0;
+	}
 
-
+	// Music Note (WHITE)
+	if (pad.Buttons & PSP_CTRL_NOTE) {
+		ashBotones[BOTON_BLANCO] = 1;
+	} else {
+		ashBotones[BOTON_BLANCO] = 0;
+	}
 }
 
 void DrawCursor(short * screen, unsigned int x, unsigned int y)
@@ -751,7 +684,7 @@ void vdXBOptionsMenu(int iMenuInicial)
 	{
 
 		//g_input.Update();
-		vdRellenaBotones();
+		vdGetButtons();
 		//if(g_input.IsButtonPressed(Generic_DPadUp))
 		if( ashBotones[BOTON_ARRIBA] )
 		{
@@ -1866,8 +1799,8 @@ process_joystick_events( u16 *keypad) {
 
 u16 shift_pressed;
 
-// 7-25-2020 - cleaned this function up a bit, rewrote some
-// variables in english. original creds to HCF (motolegacy)
+// MotoLegacy (7/25/2020) - cleaned this function up a bit, rewrote some
+// variables in english. original creds to HCF
 void process_ctrls_event(struct ctrls_event_config *cfg)
 {
 	int i;
@@ -1877,8 +1810,7 @@ void process_ctrls_event(struct ctrls_event_config *cfg)
 
 	int cause_quit = 0;
 
-	// Init Buttons(???)
-	vdRellenaBotones();
+	vdGetButtons();
 
 	for (i = 0; i < 12; i++) {
 		if (ashBotones[default_xb_cfg_h[i]])
@@ -1888,8 +1820,8 @@ void process_ctrls_event(struct ctrls_event_config *cfg)
 	}
 
 	// Touchscreen Pointer Movement
-	x = SDL_JoystickGetAxis(GAMEPAD, 0);
-	y = SDL_JoystickGetAxis(GAMEPAD, 1);
+	x = joyx;
+	y = joyy;
 
 	MouseUpdate = false;
 
