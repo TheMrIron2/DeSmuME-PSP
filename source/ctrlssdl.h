@@ -27,9 +27,14 @@
 #include <stdlib.h>
 //#include <unistd.h>
 
+#include <pspctrl.h>
+
+// TODO: Cull SDL
 #include <SDL/SDL.h>
 #include <SDL/SDL_image.h>
 #include <SDL/SDL_ttf.h>
+// TODO: Cull SDL
+
 #include "MMU.h"
 
 #include "types.h"
