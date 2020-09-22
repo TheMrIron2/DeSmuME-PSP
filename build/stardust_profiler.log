@@ -4,13 +4,13 @@
 [METHOD NAME]: NDS_EXEC
 [NDS_EXEC]	NUM OF SAMPLES: 1 samples
 [NDS_EXEC]	AVERAGE TIME: 6.00803e+15ms
-[NDS_EXEC]	MINIMUM TIME: 1486.49ms
-[NDS_EXEC]	MAXIMUM TIME: 1486.49ms
-[NDS_EXEC]	MEDIAN TIME: 1486.49ms
+[NDS_EXEC]	MINIMUM TIME: 1446.61ms
+[NDS_EXEC]	MAXIMUM TIME: 1446.61ms
+[NDS_EXEC]	MEDIAN TIME: 1446.61ms
 
 [METHOD NAME]: spu_emulate_user
 [spu_emulate_user]	NUM OF SAMPLES: 1 samples
 [spu_emulate_user]	AVERAGE TIME: 6.00803e+15ms
-[spu_emulate_user]	MINIMUM TIME: 0.182ms
-[spu_emulate_user]	MAXIMUM TIME: 0.182ms
-[spu_emulate_user]	MEDIAN TIME: 0.182ms
+[spu_emulate_user]	MINIMUM TIME: 0.181ms
+[spu_emulate_user]	MAXIMUM TIME: 0.181ms
+[spu_emulate_user]	MEDIAN TIME: 0.181ms

@@ -109,7 +109,7 @@ CFLAGS += -IC:/pspsdk/psp/include/SDL -I./libs/include
 CXXFLAGS = -std=gnu++17 $(CFLAGS) -fno-exceptions
 ASFLAGS = $(CFLAGS)
 
-LIBS= -L./libs/lib -lstardust -lpthread-psp -lSDLmain -lSDL -lSDL_ttf -lSDL_image -lpspirkeyb -lpspwlan -lpsppower -lGL -lfreetype -ljpeg -lpng -lz -lm -lSDL -lpspgu -lpsphprm -lpspaudio -lstdc++ -lpspvfpu -lpsprtc -lvorbisidec $( shell $( SDL_CONFIG ) --libs )
+LIBS= -L./libs/lib -lstardust -lpthread-psp -lSDL -lSDL_ttf -lSDL_image -lpspirkeyb -lpspwlan -lpsppower -lGL -lfreetype -ljpeg -lpng -lz -lm -lSDL -lpspgu -lpsphprm -lpspaudio -lstdc++ -lpspvfpu -lpsprtc -lvorbisidec $( shell $( SDL_CONFIG ) --libs )
 LIBS += -lpspaudiolib -lpspaudio -lpsppower
 LIBS += -lSDL -lSDL_ttf -lvorbisidec -logg -lstdc++
 

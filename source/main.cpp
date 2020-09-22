@@ -33,6 +33,10 @@
 #include <pspsuspend.h>
 #include <pspkernel.h>
 
+#include <pspgu.h>
+#include <pspgum.h>
+#include <malloc.h>
+
 #include <Profiler/Profiler.h>
 Stardust::Profiling::Profiler pf("DeSmuME");
 
@@ -52,6 +56,7 @@ PSP_MAIN_THREAD_STACK_SIZE_KB(1024);
 PSP_HEAP_SIZE_KB(-256);
 PSP_MAIN_THREAD_STACK_SIZE_KB(256);
 */
+PSP_MODULE_INFO("DeSmuMe", 0, 1, 1);
 PSP_MAIN_THREAD_ATTR( PSP_THREAD_ATTR_VFPU );
 PSP_HEAP_SIZE_KB(-256);
 PSP_MAIN_THREAD_STACK_SIZE_KB(256);
@@ -98,6 +103,52 @@ PSP_MAIN_THREAD_STACK_SIZE_KB(256);
 */
 
 //HCF PSP
+
+static unsigned int __attribute__((aligned(64))) gulist[2048];
+#define SCR_WIDTH (480)
+#define SCR_HEIGHT (272)
+#define BUF_WIDTH (512)
+
+#define TEXTURE_FLAGS (GU_TEXTURE_16BIT | GU_VERTEX_16BIT | GU_TRANSFORM_2D)
+
+void* list = memalign(16, 0x90000);
+
+static unsigned int staticOffset = 0;
+
+
+static unsigned int getMemorySize(unsigned int width, unsigned int height, unsigned int psm) {
+    switch (psm) {
+        case GU_PSM_T4:
+            return (width * height) >> 1;
+
+        case GU_PSM_T8:
+            return width * height;
+
+        case GU_PSM_5650:
+        case GU_PSM_5551:
+        case GU_PSM_4444:
+        case GU_PSM_T16:
+            return 2 * width * height;
+
+        case GU_PSM_8888:
+        case GU_PSM_T32:
+            return 4 * width * height;
+
+        default:
+            return 0;
+    }
+}
+
+
+void *getStaticVramBuffer(unsigned int width, unsigned int height, unsigned int psm) {
+    unsigned int memSize = getMemorySize(width, height, psm);
+    void *result = (void *) (staticOffset | 0x40000000);
+    staticOffset += memSize;
+
+    return result;
+}
+
+
 SDL_Surface *SDLscreen = NULL;
 SDL_Surface *surface1;
 SDL_Surface *surface2;
@@ -285,79 +336,104 @@ void vdDrawStylus()
 	//DrawText((short*)GPU_screen, x, y, false, "+");
 }
 
-#include <pspgu.h>
+struct Vertex 
+{
+  unsigned short u, v;
+  signed short x, y, z;
+};
+
+//Change this to play with other sizes
+#define SLICE_SIZE 32
+
+static void blit_sliced(int sx, int sy, int sw, int sh, int dx, int dy /*, int SLICE_SIZE*/) {
+  int start, end;
+  // blit maximizing the use of the texture-cache
+  for (start = sx, end = sx + sw; start < end; start += SLICE_SIZE, dx += SLICE_SIZE) {
+    struct Vertex* vertices = (struct Vertex*)sceGuGetMemory(2 * sizeof(struct Vertex));
+    int width = (start + SLICE_SIZE) < end ? SLICE_SIZE : end - start;
+
+    vertices[0].u = start;
+    vertices[0].v = sy;
+    vertices[0].x = dx;
+    vertices[0].y = dy;
+    vertices[0].z = 0;
+
+    vertices[1].u = start + width;
+    vertices[1].v = sy + sh;
+    vertices[1].x = dx + width;
+    vertices[1].y = dy + sh;
+    vertices[1].z = 0;
+
+    sceGuDrawArray(GU_SPRITES, TEXTURE_FLAGS, 2, NULL, vertices);
+  }
+}
+
+
+void initGuContext(void* list) {
+    sceGuStart(GU_DIRECT, list);
+    
+    // Init draw an disp buffers from the base of the vram
+    sceGuDrawBuffer(GU_PSM_5551, (void*)0, BUF_WIDTH);
+    sceGuDispBuffer(SCR_WIDTH, SCR_HEIGHT, (void*)(sizeof(u32) *
+    BUF_WIDTH * SCR_HEIGHT) , BUF_WIDTH);
+    
+    // Background color and disable scissor test
+    // because it is enabled by default with no size sets
+    sceGuClearColor(0xFF404040);
+    sceGuDisable(GU_SCISSOR_TEST);
+    
+    // Enable clamped rgba texture mode
+    sceGuTexWrap(GU_CLAMP, GU_CLAMP);
+    sceGuTexMode(GU_PSM_8888, 0, 1, 0);
+    sceGuEnable(GU_TEXTURE_2D);
+    
+    // Enable modulate blend mode 
+    sceGuEnable(GU_BLEND);
+    sceGuTexFunc(GU_TFX_MODULATE, GU_TCC_RGBA);
+    sceGuBlendFunc(GU_ADD, GU_SRC_ALPHA, GU_ONE_MINUS_SRC_ALPHA, 0, 0);
+    
+    // Turn the display on, and finish the current list
+    sceGuDisplay(GU_TRUE);
+    sceGuFinish();
+    sceGuSync(GU_SYNC_FINISH, GU_SYNC_WHAT_DONE);
+}
+
 
 void Gu_draw()
 {
-	int i, j;
-	u16* runSrc;
-	u16* runDst;
+  sceGuStart(GU_DIRECT, gulist);
 
-    SDL_Rect rectPant1, rectPant2;
+    //clear screen
+    sceGuClearColor(0 /*0x00ff00ff*/);
+    sceGuClear(GU_COLOR_BUFFER_BIT);
 
-	//PARA IMPRIMIR FPS - to print FPS
-	char achTextoFPS[20];
-	SDL_Rect rectTextoFPS;
-	SDL_Rect rectTextoFrameskip;
-	SDL_Surface *picTextoFPS;
-	SDL_Color textColor = { 240, 0, 200 };
+    //Load 1st Screen Texture
+    sceGuTexMode(GU_PSM_5551, 0, 0, 0);  
+    sceGuTexImage(0, 256, 192 * 2, BUF_WIDTH / 2, GPU_screen);
+    sceGuTexFunc(GU_TFX_REPLACE, GU_TCC_RGB);
+    sceGuTexFilter(GU_LINEAR, GU_LINEAR);
+    sceGuAmbientColor(0xffffffff);
 
-	rectTextoFPS.x = 10;
-	rectTextoFPS.y = 10;
-	rectTextoFrameskip.y = 10;
-	rectPant1.x = 0;
-	rectPant1.y = 40;
+    // render sprite
+    sceGuColor(0xffffffff);
     
-	rectPant2.x = 240;
-	rectPant2.y = 40;
+    //Render Screen 1 AKA TOP
+    blit_sliced(0, 0, 256, 192 , 0, 20);
 
+     //Load 2nd Screen Texture
+    sceGuTexMode(GU_PSM_5551, 0, 0, 0);  
+    sceGuTexImage(0, 256, 192 * 2, BUF_WIDTH / 2, &GPU_screen[256*192*2]);
+    sceGuTexFunc(GU_TFX_REPLACE, GU_TCC_RGB);
+    sceGuTexFilter(GU_LINEAR, GU_LINEAR);
 
-    //Screen 1 - No stretch
-    if (SDL_MUSTLOCK(surface1))
-    while (SDL_LockSurface(surface1) < 0)
-        SDL_Delay(10);    //HCF: QUITABLE
-
-    memcpy(surface1->pixels, GPU_screen, 256 * 192 * 2);
-
-    if (SDL_MUSTLOCK(surface1))
-        SDL_UnlockSurface(surface1);
-
-    SDL_BlitSurface(surface1, NULL, SDLscreen, &rectPant1);
+    //Render Screen 2 AKA LOWER
+    blit_sliced(0, 0, 256, 192 , 256, 20);
+        
+    sceGuFinish();
+    sceGuSync(GU_SYNC_FINISH, GU_SYNC_WHAT_DONE);
+    // Swap only after the end of the execution of the list
+    sceGuSwapBuffers();
     
-    //Screen 2 - No stretch
-    if (SDL_MUSTLOCK(surface2))
-    while (SDL_LockSurface(surface2) < 0)
-        SDL_Delay(10);    //HCF: QUITABLE
-
-
-    memcpy(surface2->pixels, &GPU_screen[256*192*2], 256 * 192 * 2);
-
-    if (SDL_MUSTLOCK(surface2))
-        SDL_UnlockSurface(surface2);
-
-
-    pf.beginProfileMethod();
-    SDL_BlitSurface(surface2, NULL, SDLscreen, &rectPant2);
-
-//Para imprimir FPS
-    #if( SHOW_FPS_VERSION  == 1 )
-			sprintf(achTextoFPS, "%d", totalframessegundo);
-			picTextoFPS = TTF_RenderText_Solid( font, achTextoFPS, textColor );
-			rectTextoFPS.x = 260;
-			SDL_BlitSurface(picTextoFPS, NULL, SDLscreen, &rectTextoFPS);
-			SDL_FreeSurface(picTextoFPS);
-
-			//Para imprimir frameskip
-			//Para imprimir frameskip
-			sprintf(achTextoFPS, "%d", frameskip);
-			picTextoFPS = TTF_RenderText_Solid( font, achTextoFPS, textColor );
-			rectTextoFrameskip.x = 330;
-			SDL_BlitSurface(picTextoFPS, NULL, SDLscreen, &rectTextoFrameskip);
-			SDL_FreeSurface(picTextoFPS);
-	#endif
-
-            SDL_Flip(SDLscreen);
-
 }
 
 
@@ -509,8 +585,10 @@ void vdDejaLog(char *msg)
     fclose(fd);
 }
 
-extern "C" int SDL_main(int argc, char **argv) {
-//int main(int argc, char ** argv) {
+int main(int argc, char ** argv) {
+
+  initGuContext(list);
+
   class configured_features my_config;
   struct ctrls_event_config ctrls_cfg;
 
@@ -795,21 +873,12 @@ extern "C" int SDL_main(int argc, char **argv) {
 
   execute = true;
 
-  vdDejaLog("INIT SDL");
 
   //LOGS
     memset(CAPIMBE,0x00, 128);
     sprintf(CAPIMBE, "%d", iGetFreeMemory());
     vdDejaLog(CAPIMBE);
   //LOGS
-
-  if(SDL_Init(SDL_INIT_TIMER | SDL_INIT_VIDEO) == -1)
-    {
-      fprintf(stderr, "Error trying to initialize SDL: %s\n",
-              SDL_GetError());
-      return 1;
-    }
-  //SDL_WM_SetCaption("Desmume SDL", NULL);
 
   vdDejaLog("SET VIDEO MODE");
 
