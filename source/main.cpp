@@ -281,7 +281,7 @@ void vdDrawStylus()
 	else
 		y -= 3;
 
-	//DrawCursor((short*)GPU_screen, x, y);
+	DrawCursor((short*)GPU_screen, x, y);
 	//DrawText((short*)GPU_screen, x, y, false, "+");
 }
 
@@ -311,6 +311,8 @@ void Gu_draw()
 	rectPant2.x = 240;
 	rectPant2.y = 40;
 
+
+  vdDrawStylus();//Draw the touch pointer here
 
     //Screen 1 - No stretch
     if (SDL_MUSTLOCK(surface1))
