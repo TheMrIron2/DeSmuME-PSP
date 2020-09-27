@@ -423,15 +423,17 @@ static void desmume_cycle(struct ctrls_event_config * cfg)
         process_ctrls_event( event, cfg);
     }
 	*/
-	process_ctrls_event( cfg);
+	process_ctrls_event(cfg->keypad);
 
     /* Update mouse position and click */
-    if(mouse.down) NDS_setTouchPos(mouse.x, mouse.y);
-    if(mouse.click)
-      {
-        NDS_releaseTouch();
-        mouse.click = FALSE;
-      }
+
+  if (mouse.click)
+	  {
+		  NDS_setTouchPos(mouse.x, mouse.y);
+	  }
+	  else {
+		  NDS_releaseTouch();
+	  }
 
 	  //vdDejaLog("update keypad  ");
 

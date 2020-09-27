@@ -195,7 +195,7 @@ u16 lookup_key (u16 keyval);
 u16 lookup_joy_key (u16 keyval);
 void
 //process_ctrls_event( SDL_Event& event,
-  process_ctrls_event( struct ctrls_event_config *cfg);
+  process_ctrls_event(u16 &pad);
 
 void
 process_joystick_events( u16 *keypad);

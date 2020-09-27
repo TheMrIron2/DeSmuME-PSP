@@ -63,6 +63,21 @@ Sint16 lstick;
 SDL_Joystick *GAMEPAD; //Gamepad
 short ashBotones[NUM_BOTONES];
 
+const u16 default_psp_cfg_h[NB_KEYS] =
+  { PSP_CTRL_CIRCLE,    //A
+	PSP_CTRL_CROSS,     //B
+	PSP_CTRL_SELECT,	//Select
+	PSP_CTRL_START,		//Start
+	PSP_CTRL_RIGHT,		//Right
+	PSP_CTRL_LEFT,		//Left
+	PSP_CTRL_UP,		//Up
+	PSP_CTRL_DOWN,		//Down
+	PSP_CTRL_RTRIGGER,	//R
+	PSP_CTRL_LTRIGGER,	//L
+	PSP_CTRL_TRIANGLE,  //X
+	PSP_CTRL_SQUARE     //Y
+  };
+
 /*
 long stylusX = 0;
 long stylusY = 0;
@@ -1801,7 +1816,10 @@ u16 shift_pressed;
 
 // MotoLegacy (7/25/2020) - cleaned this function up a bit, rewrote some
 // variables in english. original creds to HCF
-void process_ctrls_event(struct ctrls_event_config *cfg)
+
+// Grillo383 (27/09/2020) : Removed SDL Input - Implemented Native Input  
+//							Implemented TouchScreen functionality
+void process_ctrls_event(u16 &keypad)
 {
 	int i;
 	bool MouseUpdate; // MotoLegacy - originally an int.. lol
@@ -1810,6 +1828,45 @@ void process_ctrls_event(struct ctrls_event_config *cfg)
 
 	int cause_quit = 0;
 
+	SceCtrlData pad;
+	sceCtrlSetSamplingCycle(0);
+	sceCtrlSetSamplingMode(PSP_CTRL_MODE_ANALOG);
+	sceCtrlPeekBufferPositive(&pad, 1); 
+
+
+	if (pad.Lx < 10){
+		--mouse.x; --mouse.x;
+	} 
+		
+	if (pad.Lx > 245){
+		++mouse.x; ++mouse.x;
+	} 
+		
+	if (pad.Ly < 10) {
+		--mouse.y; --mouse.y;
+	} 
+	
+	if (pad.Ly > 245){
+		++mouse.y; ++mouse.y;
+	}
+
+	set_mouse_coord( mouse.x, mouse.y);
+
+	if (pad.Buttons & PSP_CTRL_RTRIGGER && pad.Buttons & PSP_CTRL_CIRCLE) {
+	  	mouse.click = TRUE;
+		return; //Early return if we're "touching" the screen
+	  }else{
+		mouse.click = FALSE;
+	  }
+
+	for(int i=0;i<12;i++) {
+		if (pad.Buttons & default_psp_cfg_h[i])
+			ADD_KEY(keypad, KEYMASK_(i));
+		else
+			RM_KEY(keypad, KEYMASK_(i));
+	 }
+
+#if 0 //SDL
 	vdGetButtons();
 
 	for (i = 0; i < 12; i++) {
@@ -1871,6 +1928,7 @@ void process_ctrls_event(struct ctrls_event_config *cfg)
 			mouse.click = FALSE;
 		}
 	}
+#endif
 
 	// Graphics Mode Toggle
 	if (ashBotones[BOTON_NEGRO]) {
