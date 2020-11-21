@@ -56,7 +56,7 @@ void Default3D_Reset()
 
 void Default3D_Close()
 {
-	memset(gfx3d_convertedScreen, 0, sizeof(gfx3d_convertedScreen));
+	//memset(gfx3d_convertedScreen, 0, sizeof(gfx3d_convertedScreen));
 	default3DAlreadyClearedLayer = false;
 }
 
@@ -64,7 +64,7 @@ void Default3D_Render()
 {
 	if (!default3DAlreadyClearedLayer)
 	{
-		memset(gfx3d_convertedScreen, 0, sizeof(gfx3d_convertedScreen));
+		//memset(gfx3d_convertedScreen, 0, sizeof(gfx3d_convertedScreen));
 		default3DAlreadyClearedLayer = true;
 	}
 }
@@ -154,7 +154,7 @@ Render3DError Render3D::ClearFramebuffer(const GFX3D_State *renderState)
 {
 	Render3DError error = RENDER3DERROR_NOERR;
 	
-	struct GFX3D_ClearColor
+	/*struct GFX3D_ClearColor
 	{
 		u8 r;
 		u8 g;
@@ -210,7 +210,7 @@ Render3DError Render3D::ClearFramebuffer(const GFX3D_State *renderState)
 	else
 	{
 		error = this->ClearUsingValues(clearColor.r, clearColor.g, clearColor.b, clearColor.a, renderState->clearDepth, polyID);
-	}
+	}*/
 	
 	return error;
 }
@@ -252,20 +252,20 @@ Render3DError Render3D::Render(const GFX3D_State *renderState, const VERTLIST *v
 {
 	Render3DError error = RENDER3DERROR_NOERR;
 	
-	error = this->BeginRender(renderState);
+	/*error = this->BeginRender(renderState);
 	if (error != RENDER3DERROR_NOERR)
 	{
 		return error;
-	}
+	}*/
 	
-	this->UpdateToonTable(renderState->u16ToonTable);
-	this->ClearFramebuffer(renderState);
+	//this->UpdateToonTable(renderState->u16ToonTable);
+	//this->ClearFramebuffer(renderState);
 	
-	this->PreRender(renderState, vertList, polyList, indexList);
+	//this->PreRender(renderState, vertList, polyList, indexList);
 	this->DoRender(renderState, vertList, polyList, indexList);
-	this->PostRender();
+	//this->PostRender();
 	
-	this->EndRender(frameCount);
+	//this->EndRender(frameCount);
 	
 	return error;
 }

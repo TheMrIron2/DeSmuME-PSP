@@ -18,22 +18,11 @@
 
 #include "types.h"
 
-#ifdef HAVE_JIT
+#if 0
 #if !defined(HOST_32) && !defined(HOST_64)
 #error "ERROR: JIT compiler - unsupported target platform"
 #endif
 
-/*
-#ifdef HOST_WINDOWS
-// **** Windows port
-#else
-#include <sys/mman.h>
-//#include <errno.h>
-#include <unistd.h>
-#include <stddef.h>
-#define HAVE_STATIC_CODE_BUFFER
-#endif
-*/
 
 //HCF TESTING (default:commented)
 #define HAVE_STATIC_CODE_BUFFER
@@ -44,6 +33,7 @@
 #include "Disassembler.h"
 #include "MMU.h"
 #include "MMU_timing.h"
+#include "utils/DynASM/src/dasm_mips.h"
 #include "utils/AsmJit/AsmJit.h"
 #include "arm_jit.h"
 #include "bios.h"
@@ -62,166 +52,23 @@
 
 //using namespace AsmJit;
 
-#if (LOG_JIT_LEVEL > 0)
-#define LOG_JIT 1
-#define JIT_COMMENT(...) c.comment(__VA_ARGS__)
-#define printJIT(buf, val) { \
-	JIT_COMMENT("printJIT(\""##buf"\", val);"); 
-	GpVar txt = c.newGpVar(kX86VarTypeGpz); \
-	GpVar data = c.newGpVar(kX86VarTypeGpz); \
-	GpVar io = c.newGpVar(kX86VarTypeGpd); \
-	c.lea(io, dword_ptr_abs(stdout)); \
-	c.lea(txt, dword_ptr_abs(&buf)); \
-	c.mov(data, *(GpVar*)&val); \
-	X86CompilerFuncCall* prn = c.call((uintptr_t)fprintf); \
-	prn->setPrototype(kX86FuncConvDefault, FuncBuilder3<void, void*, void*, u32>()); \
-	prn->setArgument(0, io); \
-	prn->setArgument(1, txt); \
-	prn->setArgument(2, data); \
-	X86CompilerFuncCall* prn_flush = c.call((uintptr_t)fflush); \
-	prn_flush->setPrototype(kX86FuncConvDefault, FuncBuilder1<void, void*>()); \
-	prn_flush->setArgument(0, io); \
-}
-#else
+
 #define LOG_JIT 0
 #define JIT_COMMENT(...)
 #define printJIT(buf, val)
-#endif
 
 u32 saveBlockSizeJIT = 0;
 
-#ifdef MAPPED_JIT_FUNCS
-CACHE_ALIGN JIT_struct JIT;
+CACHE_ALIGN uintptr_t compiled_funcs[1<<22] = {0}; 
 
-uintptr_t *JIT_struct::JIT_MEM[2][0x4000] = {{0}};
-
-static uintptr_t *JIT_MEM[2][32] = {
-	//arm9
-	{
-		/* 0X*/	DUP2(JIT.ARM9_ITCM),
-		/* 1X*/	DUP2(JIT.ARM9_ITCM), // mirror
-		/* 2X*/	DUP2(JIT.MAIN_MEM),
-		/* 3X*/	DUP2(JIT.SWIRAM),
-		/* 4X*/	DUP2(NULL),
-		/* 5X*/	DUP2(NULL),
-		/* 6X*/		 NULL, 
-					 JIT.ARM9_LCDC,	// Plain ARM9-CPU Access (LCDC mode) (max 656KB)
-		/* 7X*/	DUP2(NULL),
-		/* 8X*/	DUP2(NULL),
-		/* 9X*/	DUP2(NULL),
-		/* AX*/	DUP2(NULL),
-		/* BX*/	DUP2(NULL),
-		/* CX*/	DUP2(NULL),
-		/* DX*/	DUP2(NULL),
-		/* EX*/	DUP2(NULL),
-		/* FX*/	DUP2(JIT.ARM9_BIOS)
-	},
-	//arm7
-	{
-		/* 0X*/	DUP2(JIT.ARM7_BIOS),
-		/* 1X*/	DUP2(NULL),
-		/* 2X*/	DUP2(JIT.MAIN_MEM),
-		/* 3X*/	     JIT.SWIRAM,
-		             JIT.ARM7_ERAM,
-		/* 4X*/	     NULL,
-		             JIT.ARM7_WIRAM,
-		/* 5X*/	DUP2(NULL),
-		/* 6X*/		 JIT.ARM7_WRAM,		// VRAM allocated as Work RAM to ARM7 (max. 256K)
-					 NULL,
-		/* 7X*/	DUP2(NULL),
-		/* 8X*/	DUP2(NULL),
-		/* 9X*/	DUP2(NULL),
-		/* AX*/	DUP2(NULL),
-		/* BX*/	DUP2(NULL),
-		/* CX*/	DUP2(NULL),
-		/* DX*/	DUP2(NULL),
-		/* EX*/	DUP2(NULL),
-		/* FX*/	DUP2(NULL)
-		}
-};
-
-static u32 JIT_MASK[2][32] = {
-	//arm9
-	{
-		/* 0X*/	DUP2(0x00007FFF),
-		/* 1X*/	DUP2(0x00007FFF),
-		/* 2X*/	DUP2(0x003FFFFF), // FIXME _MMU_MAIN_MEM_MASK
-		/* 3X*/	DUP2(0x00007FFF),
-		/* 4X*/	DUP2(0x00000000),
-		/* 5X*/	DUP2(0x00000000),
-		/* 6X*/		 0x00000000,
-					 0x000FFFFF,
-		/* 7X*/	DUP2(0x00000000),
-		/* 8X*/	DUP2(0x00000000),
-		/* 9X*/	DUP2(0x00000000),
-		/* AX*/	DUP2(0x00000000),
-		/* BX*/	DUP2(0x00000000),
-		/* CX*/	DUP2(0x00000000),
-		/* DX*/	DUP2(0x00000000),
-		/* EX*/	DUP2(0x00000000),
-		/* FX*/	DUP2(0x00007FFF)
-	},
-	//arm7
-	{
-		/* 0X*/	DUP2(0x00003FFF),
-		/* 1X*/	DUP2(0x00000000),
-		/* 2X*/	DUP2(0x003FFFFF),
-		/* 3X*/	     0x00007FFF,
-		             0x0000FFFF,
-		/* 4X*/	     0x00000000,
-		             0x0000FFFF,
-		/* 5X*/	DUP2(0x00000000),
-		/* 6X*/		 0x0003FFFF,
-					 0x00000000,
-		/* 7X*/	DUP2(0x00000000),
-		/* 8X*/	DUP2(0x00000000),
-		/* 9X*/	DUP2(0x00000000),
-		/* AX*/	DUP2(0x00000000),
-		/* BX*/	DUP2(0x00000000),
-		/* CX*/	DUP2(0x00000000),
-		/* DX*/	DUP2(0x00000000),
-		/* EX*/	DUP2(0x00000000),
-		/* FX*/	DUP2(0x00000000)
-		}
-};
-
-static void init_jit_mem()
-{
-	static bool inited = false;
-	if(inited)
-		return;
-	inited = true;
-	for(int proc=0; proc<2; proc++)
-		for(int i=0; i<0x4000; i++)
-			JIT.JIT_MEM[proc][i] = JIT_MEM[proc][i>>9] + (((i<<14) & JIT_MASK[proc][i>>9]) >> 1);
-}
-
-#else
-//HCF TESTING
-//DS_ALIGN(4096) uintptr_t compiled_funcs[1<<26] = {0};
-//CACHE_ALIGN uintptr_t compiled_funcs[1<<26] = {0};   //64 MB
-//CACHE_ALIGN uintptr_t compiled_funcs[1<<23] = {0};   //8 MB
-CACHE_ALIGN uintptr_t compiled_funcs[1<<22] = {0};   //4 MB
-#endif
 
 static u8 recompile_counts[(1<<26)/16];
 
-#ifdef HAVE_STATIC_CODE_BUFFER
-// On x86_64, allocate jitted code from a static buffer to ensure that it's within 2GB of .text
-// Allows call instructions to use pcrel offsets, as opposed to slower indirect calls.
-// Reduces memory needed for function pointers.
-// FIXME win64 needs this too, x86_32 doesn't
-
-//HCF TESTING
-//DS_ALIGN(4096) static u8 scratchpad[1<<25];
-//ALIGN(4096) static u8 scratchpad[1<<25];
-//CACHE_ALIGN static u8 scratchpad[1<<25];   //32 MB 
-//CACHE_ALIGN static u8 scratchpad[1<<23];   //8 MB 
 CACHE_ALIGN static u8 scratchpad[1<<22];   //4 MB 
 
 static u8 *scratchptr;
 
-struct ASMJIT_API StaticCodeGenerator : public Context
+struct dasm_State StaticCodeGenerator
 {
 	StaticCodeGenerator()
 	{
@@ -238,13 +85,13 @@ struct ASMJIT_API StaticCodeGenerator : public Context
 		*/
 	}
 
-	uint32_t generate(void** dest, Assembler* assembler)
+	uint32_t generate(void** dest, dasm_State* assembler)
 	{
-		uintptr_t size = assembler->getCodeSize();
+		uintptr_t size = assembler->codesize;
 		if(size == 0)
 		{
 			*dest = NULL;
-			return kErrorNoFunction;
+			return -1;
 		}
 		if(size > (uintptr_t)(scratchpad+sizeof(scratchpad)-scratchptr))
 		{
@@ -252,21 +99,19 @@ struct ASMJIT_API StaticCodeGenerator : public Context
 			arm_jit_reset(1);
 			// If arm_jit_reset didn't involve recompiling op_cmp, we could keep the current function.
 			*dest = NULL;
-			return kErrorOk;
+			return -2;
 		}
 		void *p = scratchptr;
 		size = assembler->relocCode(p);
 		scratchptr += size;
 		*dest = p;
-		return kErrorOk;
+		return 1;
 	}
 };
 
-static StaticCodeGenerator codegen;
-static X86Compiler c(&codegen);
-#else
-static X86Compiler c;
-#endif
+static StaticCodeGenerator * codegen;
+static dasm_State** Dst; //= &state;
+
 
 static void emit_branch(int cond, Label to);
 static void _armlog(u8 proc, u32 addr, u32 opcode);

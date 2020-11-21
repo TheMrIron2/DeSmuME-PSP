@@ -1,14 +1,15 @@
-TARGET = DeSmuME-PSP
+TARGET = DesmumePSP
 
-MESS 	  = 1
-LSB_FIRST = 1
-SRCDIR 	  = ../source
+MESS=1
+LSB_FIRST=1
+PSP_LARGE_MEMORY = 1
+SRCDIR = ../source
 
 OBJS = $(SRCDIR)/arm_instructions.o \
+$(SRCDIR)/arm_jit.o \
 $(SRCDIR)/armcpu.o \
 $(SRCDIR)/bios.o \
 $(SRCDIR)/common.o \
-$(SRCDIR)/commandline.o \
 $(SRCDIR)/cp15.o \
 $(SRCDIR)/debug.o \
 $(SRCDIR)/driver.o \
@@ -17,7 +18,6 @@ $(SRCDIR)/FIFO.o \
 $(SRCDIR)/firmware.o \
 $(SRCDIR)/gfx3d.o \
 $(SRCDIR)/GPU.o \
-$(SRCDIR)/GPU_osd_stub.o \
 $(SRCDIR)/matrix.o \
 $(SRCDIR)/mc.o \
 $(SRCDIR)/mic.o \
@@ -28,6 +28,7 @@ $(SRCDIR)/readwrite.o \
 $(SRCDIR)/render3D.o \
 $(SRCDIR)/ROMReader.o \
 $(SRCDIR)/rtc.o \
+$(SRCDIR)/saves.o \
 $(SRCDIR)/slot1.o \
 $(SRCDIR)/slot2.o \
 $(SRCDIR)/SPU.o \
@@ -71,54 +72,44 @@ $(SRCDIR)/addons/slot2_piano.o \
 $(SRCDIR)/addons/slot2_rumblepak.o \
 $(SRCDIR)/addons/slot2_gbagame.o \
 $(SRCDIR)/addons/slot2_guitarGrip.o \
+$(SRCDIR)/PSP/FrontEnd.o \
+$(SRCDIR)/PSP/PSPDisplay.o \
+$(SRCDIR)/PSP/vram.o \
+$(SRCDIR)/PSP/psp_sound.o \
+$(SRCDIR)/PSP/FastMemcpyPSP.o \
+$(SRCDIR)/PSP/DisableFPUExceptions.o \
 $(SRCDIR)/sndsdl.o \
+$(SRCDIR)/sndpsp.o \
 $(SRCDIR)/ctrlssdl.o \
 $(SRCDIR)/main.o
 
-CC  = psp-g++
-CXX = psp-g++
+CC=psp-g++
+CXX=psp-g++
 
-#ESTO NO HACE FALTA: SOLO RENOMBRAR A CPP!!!
-GCC/%.o: %.cpp
-			$(CXX) $< -o $@
-
-mess/drivers/%.o: %.c
-			$(CXX) $< -o $@
-
-emu/drivers/%.o: %.c
-			$(CXX) $< -o $@
-
-emu/machine/%.o: %.c
-			$(CXX) $< -o $@
-
-emu/%.o: %.c
-			$(CXX) $< -o $@
-
-#ESTO NO HACE FALTA: SOLO RENOMBRAR A CPP!!!
 
 PSPSDK = $(shell psp-config --pspsdk-path)
 PSPDEV = $(shell psp-config -d)
-SDL_CONFIG = /usr/local/pspdev/psp/bin/sdl-config
+
+CFLAGS = -O2 -finline-functions -fno-rtti -ffast-math -fweb -fomit-frame-pointer  -G0 -Wall -D PSP -D NOSSE2 -D HAVE_LIBZ -funsigned-char -Wall \
+                  -fstrict-aliasing -falign-functions=32 \
+                  -falign-loops -falign-labels -falign-jumps -faligned-new
 
 
-#CFLAGS = -O2 -fweb -fomit-frame-pointer -G0 -Wall -D PSP
-CFLAGS = -O2 -ffast-math -fweb -fomit-frame-pointer  -G0 -D PSP #-Wall
+CXXFLAGS = $(CFLAGS) -fno-exceptions
 
+ASFLAGS = $(CFLAGS) 
 
-CFLAGS += -IC:/pspsdk/psp/include/SDL -I./libs/include
-CXXFLAGS = -std=gnu++17 $(CFLAGS) -fno-exceptions
-ASFLAGS = $(CFLAGS)
+INCDIR =  ./libs/include
 
-LIBS= -L./libs/lib -lstardust -lpthread-psp -lSDLmain -lSDL -lSDL_ttf -lSDL_image -lpspirkeyb -lpspwlan -lpsppower -lGL -lfreetype -ljpeg -lpng -lz -lm -lSDL -lpspgu -lpsphprm -lpspaudio -lstdc++ -lpspvfpu -lpsprtc -lvorbisidec $( shell $( SDL_CONFIG ) --libs )
-LIBS += -lpspaudiolib -lpspaudio -lpsppower
-LIBS += -lSDL -lSDL_ttf -lvorbisidec -logg -lstdc++
+LIBDIR = ./libs/lib
+LIBS  =  -lme -lintrafont -lpspdmac  -lpspmath -lpthread-psp -lpsppower -lglut -lpspgum  -lfreetype -lpng -lz  -lm -lpspgu -lpsphprm -lpspaudio -lstdc++ -lpspvfpu -lpsprtc -lvorbisidec
+LIBS += -lpspaudiolib -lpspvram  -lpspsdk
 
-BUILD_PRX       = 1
-PSP_FW_VERSION  = 500
-EXTRA_TARGETS   = EBOOT.PBP
-PSP_EBOOT_TITLE = DeSmuME
-PSP_EBOOT_ICON  = ICON0.png
-PSP_EBOOT_PIC1  = PIC1.png
-#PSP_EBOOT_SND0 = SND0.at3
+EXTRA_TARGETS = EBOOT.PBP
+PSP_EBOOT_TITLE = Desmume
 
 include $(PSPSDK)/lib/build.mak
+
+PSP_EBOOT_ICON = ICON0.png
+#PSP_EBOOT_PIC1 = PIC1.png
+#PSP_EBOOT_SND0 = SND0.at3

@@ -20,6 +20,7 @@
 
 //#define GDB_STUB 1
 
+#pragma once
 
 #ifndef TYPES_HPP
 #define TYPES_HPP
@@ -50,7 +51,7 @@ template<typename T> inline void reconstruct(T* t) {
 #elif defined (__i386__)
 #define FASTCALL __attribute__((regparm(3)))
 #else
-#define FASTCALL
+#define FASTCALL 
 #endif
 #endif
 
@@ -173,12 +174,14 @@ typedef int BOOL;
 
 //HCF TESTTTT pantalla en blanco
 //#define WORDS_BIGENDIAN  1
-
+/*
 #if WORDS_BIGENDIAN
 # define LOCAL_BE
 #else
 # define LOCAL_LE
-#endif
+#endif*/
+
+#define LOCAL_LE
 
 /* little endian (ds' endianess) to local endianess convert macros */
 #ifdef LOCAL_BE	/* local arch is big endian */

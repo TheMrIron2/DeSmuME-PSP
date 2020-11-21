@@ -18,9 +18,9 @@
 	along with the this software.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#ifdef HAVE_LIBZ
+//#ifdef HAVE_LIBZ
 #include <zlib.h>
-#endif
+//#endif
 #include <stack>
 #include <set>
 #include <stdio.h>
@@ -33,19 +33,18 @@
 #include "armcpu.h"
 #include "registers.h"
 #include "FIFO.h"
-#include "driver.h"
+//#include "driver.h"
 #include "saves.h"
 #include "MMU.h"
 #include "NDSSystem.h"
 #include "render3D.h"
 #include "cp15.h"
 #include "GPU.h"
-#include "GPU_osd.h"
 #include "version.h"
 
 #include "readwrite.h"
 #include "gfx3d.h"
-#include "movie.h"
+//#include "movie.h"
 #include "mic.h"
 #include "MMU_timing.h"
 #include "slot1.h"
@@ -55,9 +54,6 @@
 
 #include "path.h"
 
-#ifdef HOST_WINDOWS
-#include "windows/main.h"
-#endif
 
 int lastSaveState = 0;		//Keeps track of last savestate used for quick save/load functions
 
@@ -65,8 +61,8 @@ int lastSaveState = 0;		//Keeps track of last savestate used for quick save/load
 //since this isnt supported right now, it is declared in here to make things compile
 #define SS_INDIRECT            0x80000000
 
-u32 _DESMUME_version = EMU_DESMUME_VERSION_NUMERIC();
-u32 svn_rev = EMU_DESMUME_SUBVERSION_NUMERIC();
+u32 _DESMUME_version = 9;//EMU_DESMUME_VERSION_NUMERIC();
+u32 svn_rev = 11;//EMU_DESMUME_SUBVERSION_NUMERIC();
 s64 save_time = 0;
 NDS_SLOT1_TYPE slot1Type = NDS_SLOT1_RETAIL_AUTO;
 NDS_SLOT2_TYPE slot2Type = NDS_SLOT2_AUTO;
@@ -82,9 +78,9 @@ static bool SAV_silent_fail_flag;
 SFORMAT SF_NDS_INFO[]={
 	{ "GINF", 1, sizeof(gameInfo.header), &gameInfo.header},
 	{ "GRSZ", 1, 4, &gameInfo.romsize},
-	{ "DVMJ", 1, 1, (void*)&DESMUME_VERSION_MAJOR},
-	{ "DVMI", 1, 1, (void*)&DESMUME_VERSION_MINOR},
-	{ "DSBD", 1, 1, (void*)&DESMUME_VERSION_BUILD},
+	{ "DVMJ", 1, 1, (void*)&_DESMUME_version},
+	{ "DVMI", 1, 1, (void*)&_DESMUME_version},
+	{ "DSBD", 1, 1, (void*)&_DESMUME_version},
 	{ "GREV", 1, 4, &svn_rev},
 	{ "GTIM", 1, 8, &save_time},
 	{ 0 }
@@ -293,12 +289,12 @@ SFORMAT SF_MMU[]={
 	
 	{ 0 }
 };
-
+/*
 SFORMAT SF_MOVIE[]={
 	{ "FRAC", 4, 1, &currFrameCounter},
 	{ "LAGC", 4, 1, &TotalLagFrames},
 	{ 0 }
-};
+};*/
 
 // TODO: integrate the new wifi state variables once everything is settled
 SFORMAT SF_WIFI[]={
@@ -384,6 +380,27 @@ SFORMAT reserveChunks[] = {
 	{ "RESV", 1, 1, &reserveVal},
 	{ 0 }
 };
+
+#define SCE_SCRATCHPAD_ADDR				0x00010000		/* Physical         */
+#define SCE_SCRATCHPAD_SIZE				0x00004000		/* Size             */
+
+static int curr_sz = 0;
+
+void FreeStaticRam(size_t sz) {
+
+	curr_sz -= sz;
+
+	if (curr_sz < 0) curr_sz = 0;
+}
+
+void* GetStaticRam(size_t sz) {
+
+	curr_sz += sz;
+
+	if (curr_sz >= SCE_SCRATCHPAD_SIZE) return nullptr;
+
+	return (void*)(SCE_SCRATCHPAD_ADDR + curr_sz - sz);
+}
 
 static bool s_slot1_loadstate(EMUFILE* is, int size)
 {
@@ -527,6 +544,7 @@ static bool mmu_loadstate(EMUFILE* is, int size)
 		u8* temp = new u8[bupmem_size];
 		is->fread((char*)temp,bupmem_size);
 		MMU_new.backupDevice.load_old_state(addr_size,temp,bupmem_size);
+		//FreeStaticRam(bupmem_size);
 		delete[] temp;
 		if(is->fail()) return false;
 	}
@@ -675,17 +693,8 @@ void savestate_slot(int num)
    if (strlen(filename) + strlen(".dsx") + strlen("-2147483648") /* = biggest string for num */ >MAX_PATH) return ;
    sprintf(filename+strlen(filename), ".ds%d", num);
 
-   if (savestate_save(filename))
-   {
-	   osd->setLineColor(255, 255, 255);
-	   osd->addLine("Saved to %i slot", num);
-   }
-   else
-   {
-	   osd->setLineColor(255, 0, 0);
-	   osd->addLine("Error saving %i slot", num);
+   if (!savestate_save(filename))
 	   return;
-   }
 
    if (num >= 0 && num < NB_STATES)
    {
@@ -708,16 +717,8 @@ void loadstate_slot(int num)
 
    if (strlen(filename) + strlen(".dsx") + strlen("-2147483648") /* = biggest string for num */ >MAX_PATH) return ;
    sprintf(filename+strlen(filename), ".ds%d", num);
-   if (savestate_load(filename))
-   {
-	   osd->setLineColor(255, 255, 255);
-	   osd->addLine("Loaded from %i slot", num);
-   }
-   else
-   {
-	   osd->setLineColor(255, 0, 0);
-	   osd->addLine("Error loading %i slot", num);
-   }
+   savestate_load(filename);
+   
 }
 
 
@@ -949,7 +950,7 @@ bool savestate_save(EMUFILE* outstream, int compressionLevel)
 	arm_jit_sync();
 #endif
 	#ifndef HAVE_LIBZ
-	compressionLevel = Z_NO_COMPRESSION;
+	//compressionLevel = Z_NO_COMPRESSION;
 	#endif
 
 	EMUFILE_MEMORY ms;
@@ -994,7 +995,7 @@ bool savestate_save(EMUFILE* outstream, int compressionLevel)
 	outstream->fseek(0,SEEK_SET);
 	outstream->fwrite(magic,16);
 	write32le(SAVESTATE_VERSION,outstream);
-	write32le(EMU_DESMUME_VERSION_NUMERIC(),outstream); //desmume version
+	write32le(9,outstream); //desmume version
 	write32le(len,outstream); //uncompressed length
 	write32le(comprlen,outstream); //compressed length (-1 if it is not compressed)
 
@@ -1011,11 +1012,11 @@ bool savestate_save (const char *file_name)
 {
 	EMUFILE_MEMORY ms;
 	size_t elems_written;
-#ifdef HAVE_LIBZ
+//#ifdef HAVE_LIBZ
 	if(!savestate_save(&ms, Z_DEFAULT_COMPRESSION))
-#else
-	if(!savestate_save(&ms, 0))
-#endif
+/*#else
+	//if(!savestate_save(&ms, 0))
+#endif*/
 		return false;
 	FILE* file = fopen(file_name,"wb");
 	if(file)
@@ -1028,10 +1029,10 @@ bool savestate_save (const char *file_name)
 
 static void writechunks(EMUFILE* os) {
 
-	DateTime tm = DateTime::get_Now();
-	svn_rev = EMU_DESMUME_SUBVERSION_NUMERIC();
+	//DateTime tm = DateTime::get_Now();
+	svn_rev = 11;
 
-	save_time = tm.get_Ticks();
+	//save_time = tm.get_Ticks();
 
 	savestate_WriteChunk(os,1,SF_ARM9);
 	savestate_WriteChunk(os,2,SF_ARM7);
@@ -1046,8 +1047,8 @@ static void writechunks(EMUFILE* os) {
 	savestate_WriteChunk(os,81,mic_savestate);
 	savestate_WriteChunk(os,90,SF_GFX3D);
 	savestate_WriteChunk(os,91,gfx3d_savestate);
-	savestate_WriteChunk(os,100,SF_MOVIE);
-	savestate_WriteChunk(os,101,mov_savestate);
+	//savestate_WriteChunk(os,100,SF_MOVIE);
+	//savestate_WriteChunk(os,101,mov_savestate);
 	savestate_WriteChunk(os,110,SF_WIFI);
 	savestate_WriteChunk(os,120,SF_RTC);
 	savestate_WriteChunk(os,130,SF_NDS_INFO);
@@ -1107,8 +1108,8 @@ static bool ReadStateChunks(EMUFILE* is, s32 totalsize)
 			case 81: if(!mic_loadstate(is,size)) ret=false; break;
 			case 90: if(!ReadStateChunk(is,SF_GFX3D,size)) ret=false; break;
 			case 91: if(!gfx3d_loadstate(is,size)) ret=false; break;
-			case 100: if(!ReadStateChunk(is,SF_MOVIE, size)) ret=false; break;
-			case 101: if(!mov_loadstate(is, size)) ret=false; break;
+			//case 100: if(!ReadStateChunk(is,SF_MOVIE, size)) ret=false; break;
+			//case 101: if(!mov_loadstate(is, size)) ret=false; break;
 			case 110: if(!ReadStateChunk(is,SF_WIFI,size)) ret=false; break;
 			case 120: if(!ReadStateChunk(is,SF_RTC,size)) ret=false; break;
 			case 130: if(!ReadStateChunk(is,SF_INFO,size)) ret=false; else haveInfo=true; break;
@@ -1143,12 +1144,12 @@ static bool ReadStateChunks(EMUFILE* is, s32 totalsize)
 			printf("\tDeSmuME version: %u.%u.%u%s\n", version_major, version_minor, version_build, buf);
 		}
 
-		if (save_time)
+		/*if (save_time)
 		{
 			static const char *wday[] = { "Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat" };
 			DateTime tm = save_time;
 			printf("\tSave created: %04d-%03s-%02d %s %02d:%02d:%02d\n", tm.get_Year(), DateTime::GetNameOfMonth(tm.get_Month()), tm.get_Day(), wday[tm.get_DayOfWeek()%7], tm.get_Hour(), tm.get_Minute(), tm.get_Second());
-		}
+		}*/
 		printf("\tGame title: %s\n", buf);
 		printf("\tGame code: %c%c%c%c\n", header.gameCode[0], header.gameCode[1], header.gameCode[2], header.gameCode[3]);
 		printf("\tMaker code: %c%c (0x%04X) - %s\n", header.makerCode & 0xFF, header.makerCode >> 8, header.makerCode, getDeveloperNameByID(header.makerCode).c_str());
@@ -1158,8 +1159,8 @@ static bool ReadStateChunks(EMUFILE* is, s32 totalsize)
 		printf("\tSlot1: %s\n", slot1_List[slot1Type]->info()->name());
 		printf("\tSlot2: %s\n", slot2_List[slot2Type]->info()->name());
 
-		if (gameInfo.romsize != romsize || memcmp(&gameInfo.header, &header, sizeof(header)) != 0)
-			msgbox->warn("The savestate you are loading does not match the ROM you are running.\nYou should find the correct ROM");
+		/*if (gameInfo.romsize != romsize || memcmp(&gameInfo.header, &header, sizeof(header)) != 0)
+			msgbox->warn("The savestate you are loading does not match the ROM you are running.\nYou should find the correct ROM");*/
 	}
 
 	return ret;
@@ -1192,7 +1193,7 @@ static void loadstate()
 
 	SetupMMU(nds.Is_DebugConsole(),nds.Is_DSI());
 
-	execute = !driver->EMU_IsEmulationPaused();
+	execute = true;
 }
 
 bool savestate_load(EMUFILE* is)
@@ -1239,10 +1240,10 @@ bool savestate_load(EMUFILE* is)
 	//while the series of resets below should work,
 	//we are testing the robustness of the savestate system with this full reset.
 	//the full reset wipes more things, so we can make sure that they are being restored correctly
-	extern bool _HACK_DONT_STOPMOVIE;
-	_HACK_DONT_STOPMOVIE = true;
+	//extern bool _HACK_DONT_STOPMOVIE;
+	//_HACK_DONT_STOPMOVIE = true;
 	NDS_Reset();
-	_HACK_DONT_STOPMOVIE = false;
+	//_HACK_DONT_STOPMOVIE = false;
 
 	//reset some options to their old defaults which werent saved
 	nds._DebugConsole = FALSE;
@@ -1258,7 +1259,7 @@ bool savestate_load(EMUFILE* is)
 
 	if(!x && !SAV_silent_fail_flag)
 	{
-		msgbox->error("Error loading savestate. It failed halfway through;\nSince there is no savestate backup system, your current game session is wrecked");
+		//msgbox->error("Error loading savestate. It failed halfway through;\nSince there is no savestate backup system, your current game session is wrecked");
 		return false;
 	}
 
@@ -1292,7 +1293,7 @@ int rewindinterval = 4;
 
 void rewindsave () {
 
-	if(currFrameCounter % rewindinterval)
+	/*if(currFrameCounter % rewindinterval)
 		return;
 
 	//printf("rewindsave"); printf("%d%s", currFrameCounter, "\n");
@@ -1314,12 +1315,12 @@ void rewindsave () {
 	if((int)rewindbuffer.size() > rewindstates) {
 		delete *rewindbuffer.begin();
 		rewindbuffer.erase(rewindbuffer.begin());
-	}
+	}*/
 }
 
 void dorewind()
 {
-	if(currFrameCounter % rewindinterval)
+/*	if(currFrameCounter % rewindinterval)
 		return;
 
 	//printf("rewind\n");
@@ -1343,6 +1344,6 @@ void dorewind()
 	{
 		rewindFreeList.push(loadms);
 		rewindbuffer.pop_back();
-	}
+	}*/
 
 }

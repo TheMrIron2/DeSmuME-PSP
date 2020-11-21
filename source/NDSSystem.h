@@ -74,7 +74,6 @@ extern BOOL click;
 #define NDS_FW_LANG_CHI 6
 #define NDS_FW_LANG_RES 7
 
-extern BaseDriver *driver;
 extern CFIRMWARE *firmware;
 
 #define DSGBA_LOADER_SIZE 512
@@ -279,6 +278,8 @@ struct NDS_fw_config_data
 
 extern NDSSystem nds;
 
+extern bool SkipMEDraw;
+
 int NDS_Init();
 
 void Desmume_InitOnce();
@@ -406,6 +407,8 @@ struct UserInput
 	UserMicrophone mic;
 };
 
+void ExecDMA_TIMER();
+
 // set physical user input
 // these functions merely request the input to be changed.
 // the actual change happens later at a specific time during the frame.
@@ -441,7 +444,7 @@ void NDS_endProcessingInput();
 // this is in case something needs reentrancy while processing input
 void NDS_suspendProcessingInput(bool suspend);
 
-
+extern bool Draw;
 
 int NDS_LoadROM(const char *filename, const char* physicalFilename=0, const char* logicalFilename=0);
 void NDS_FreeROM(void);
@@ -475,6 +478,10 @@ void vdDejaLog(char *msg);
 
 extern int lagframecounter;
 
+extern volatile bool FrameRendered;
+
+extern bool BadME;
+
 extern struct TCommonSettings {
 	TCommonSettings() 
 		: 
@@ -492,7 +499,7 @@ extern struct TCommonSettings {
 		, GFX3D_Fog(false)
 
 		, GFX3D_Texture(true)
-		, GFX3D_LineHack(true)
+		, GFX3D_LineHack(false)
 		, GFX3D_Zelda_Shadow_Depth_Hack(0)
 		, GFX3D_Renderer_Multisample(false)
 		, GFX3D_TXTHack(false)
@@ -536,7 +543,7 @@ extern struct TCommonSettings {
 		, backupSave(false)
 
 		//HCF Let's test Sync sound
-		, SPU_sync_mode(1)
+		, SPU_sync_mode(0)
 		//, SPU_sync_mode(0)
 
 		, SPU_sync_method(0)

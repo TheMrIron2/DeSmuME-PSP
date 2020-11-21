@@ -31,6 +31,11 @@
 #include "MMU.h"
 #include "NDSSystem.h"
 
+
+#include "PSP/pspvfpu.h"
+
+#include <oslib/oslib.h>
+
 using std::min;
 using std::max;
 
@@ -94,7 +99,7 @@ public:
 			int todo = min((int)item.len,size);
 			size -= todo;
 			done += todo;
-			memcpy(bufptr,item.ptr,todo);
+			fast_memcpy(bufptr,item.ptr,todo);
 			bufptr += todo;
 			if(size==0) return done;
 		}
@@ -216,11 +221,10 @@ public:
 	//static const u32 kMaxCacheSize = 64*1024*1024; 
 	//changed by zeromus on 15-dec. I couldnt find any games that were getting anywhere NEAR 64
 	
-	
-	//HCF
-	static const u32 kMaxCacheSize = 1*1024*1024;
-	//static const u32 kMaxCacheSize = 4*1024*1024; 
-	/////static const u32 kMaxCacheSize = 16*1024*1024; 
+
+	//static const u32 kMaxCacheSize = 6*512*1024; //2MB
+	static const u32 kMaxCacheSize = 4*1024*1024; 
+	 // static const u32 kMaxCacheSize = 16*1024*1024; 
 	
 
 	//metal slug burns through sprites so fast, it can test it pretty quickly though
@@ -377,11 +381,18 @@ public:
 		newitem->texpal = texpal;
 		newitem->sizeX=sizeX;
 		newitem->sizeY=sizeY;
+		newitem->bufferWidth = sizeX;
 		newitem->invSizeX=1.0f/((float)(sizeX));
 		newitem->invSizeY=1.0f/((float)(sizeY));
+
+		/*if (my_config._3dScaleFix) {
+			newitem->invSizeX = (1.0f / ((float)(sizeX))) * 1024;
+			newitem->invSizeY = (1.0f / ((float)(sizeY))) * 1024;
+		}*/
+
 		newitem->decode_len = sizeX*sizeY*4;
 		newitem->mode = textureMode;
-		newitem->decoded = new u8[newitem->decode_len];
+		newitem->decoded = (u8*)memalign(16, newitem->decode_len);//new u8[newitem->decode_len];
 		list_push_front(newitem);
 		//printf("allocating: up to %d with %d items\n",cache_size,index.size());
 
@@ -390,13 +401,13 @@ public:
 		//dump palette data for cache keying
 		if(palSize)
 		{
-			memcpy(newitem->dump.palette, pal, palSize*2);
+			fast_memcpy(newitem->dump.palette, pal, palSize*2);
 		}
 
 		//dump texture and 4x4 index data for cache keying
 		const int texsize = newitem->dump.textureSize = ms.size;
 		const int indexsize = newitem->dump.indexSize = msIndex.size;
-		newitem->dump.texture = new u8[texsize+indexsize];
+		newitem->dump.texture = (u8*)memalign(16,texsize+indexsize);
 		ms.dump(&newitem->dump.texture[0],newitem->dump.maxTextureSize); //dump texture
 		if(textureMode == TEXMODE_4X4)
 			msIndex.dump(newitem->dump.texture+newitem->dump.textureSize,newitem->dump.indexSize); //dump 4x4
@@ -408,6 +419,8 @@ public:
 
 		const u8 opaqueColor = (TEXFORMAT == TexFormat_32bpp) ? 0xFF : 0x1F;
 		const u8 palZeroTransparent = ( 1 - ((format>>29) & 1) ) * opaqueColor;
+
+		//printf("TEXTURE: %d\n", newitem->mode);
 
 		switch (newitem->mode)
 		{
@@ -681,7 +694,7 @@ public:
 		return newitem;
 	} //scan()
 
-	static const int PALETTE_DUMP_SIZE = (64+16+16)*1024;
+	static const int PALETTE_DUMP_SIZE = 96*1024;//64 + 32
 	u8 paletteDump[PALETTE_DUMP_SIZE];
 
 	void invalidate()
@@ -752,7 +765,7 @@ TexCacheItem* TexCache_SetTexture(TexCache_TexFormat TEXFORMAT, u32 format, u32 
 	{
 	case TexFormat_32bpp: return texCache.scan<TexFormat_32bpp>(format,texpal);
 	case TexFormat_15bpp: return texCache.scan<TexFormat_15bpp>(format,texpal);
-	default: assert(false); return NULL;
+	//default: assert(false); return NULL;
 	}
 }
 

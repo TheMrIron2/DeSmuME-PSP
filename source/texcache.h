@@ -50,21 +50,28 @@ public:
 		delete[] decoded;
 		if(deleteCallback) deleteCallback(this);
 	}
-	u32 decode_len;
-	u32 mode;
-	u8* decoded; //decoded texture data
+	
 	bool suspectedInvalid;
 	bool assumedInvalid;
-	TTexCacheItemMultimap::iterator iterator;
 
-	int getTextureMode() const { return (int)((texformat>>26)&0x07); }
+	u8* decoded; //decoded texture data
 
+	void (*deleteCallback)(TexCacheItem*);
+
+	u32 decode_len;
+	u32 mode;
 	u32 texformat, texpal;
 	u32 sizeX, sizeY;
+
+	u16 bufferWidth;
+
 	float invSizeX, invSizeY;
 
 	u64 texid; //used by ogl renderer for the texid
-	void (*deleteCallback)(TexCacheItem*);
+
+	TTexCacheItemMultimap::iterator iterator;
+
+	int getTextureMode() const { return (int)((texformat>>26)&0x07); }
 
 	TexCache_TexFormat cacheFormat;
 

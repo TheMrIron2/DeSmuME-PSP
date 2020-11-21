@@ -17,7 +17,7 @@
 	You should have received a copy of the GNU General Public License
 	along with the this software.  If not, see <http://www.gnu.org/licenses/>.
 */
-
+#pragma once
 #ifndef GPU_H
 #define GPU_H
 
@@ -34,6 +34,8 @@ struct MMU_struct;
 
 void gpu_savestate(EMUFILE* os);
 bool gpu_loadstate(EMUFILE* is, int size);
+
+extern volatile u8 GPU_Screen[192 * 256 * 4];
 
 /*******************************************************************************
     this structure is for display control,
@@ -510,30 +512,108 @@ enum GPU_OBJ_MODE
 	GPU_OBJ_MODE_Bitmap = 3
 };
 
-struct _OAM_
+typedef union
 {
-	//attr0
-	u8 Y;
-	u8 RotScale;
-	u8 Mode;
-	u8 Mosaic;
-	u8 Depth;
-	u8 Shape;
-	//att1
-	s16 X;
-	u8 RotScalIndex;
-	u8 HFlip, VFlip;
-	u8 Size;
-	//attr2
-	u16 TileIndex;
-	u8 Priority;
-	u8 PaletteIndex;
-	//attr3
-	u16 attr3;
+	u16 attr[4];
+
+	struct
+	{
+#ifndef MSB_FIRST
+		union
+		{
+			u16 attr0;
+
+			struct
+			{
+				u16 Y : 8;					//  0- 7: Sprite Y-coordinate location within the framebuffer; 0...255
+				u16 RotScale : 1;				//     8: Perform rotation/scaling; 0=Disable, 1=Enable
+				u16 Disable : 1;				//     9: OBJ disable flag, only if Bit8 is cleared; 0=Perform render, 1=Do not perform render
+				u16 Mode : 2;					// 10-11: OBJ mode; 0=Normal, 1=Transparent, 2=Window, 3=Bitmap
+				u16 Mosaic : 1;				//    12: Mosaic render: 0=Disable, 1=Enable
+				u16 PaletteMode : 1;			//    13: Color/palette select; 0=16 palettes of 16 colors each, 1=Single palette of 256 colors
+				u16 Shape : 2;				// 14-15: OBJ shape; 0=Square, 1=Horizontal, 2=Vertical, 3=Prohibited
+			};
+
+			struct
+			{
+				u16 : 8;
+				u16 : 1;
+				u16 DoubleSize : 1;			//     9: Perform double-size render, only if Bit8 is set; 0=Disable, 1=Enable
+				u16 : 6;
+			};
+		};
+
+		s16 X : 9;							// 16-24: Sprite X-coordinate location within the framebuffer; 0...511
+		u16 RotScaleIndex : 3;				// 25-27: Rotation/scaling parameter selection; 0...31
+		u16 HFlip : 1;						//    28: Flip sprite horizontally; 0=Normal, 1=Flip
+		u16 VFlip : 1;						//    29: Flip sprite vertically; 0=Normal, 1=Flip
+		u16 Size : 2;							// 30-31: OBJ size, interacts with Bit 14-15
+											//
+											//        Size| Square | Horizontal | Vertical
+											//           0:   8x8       16x8        8x16
+											//           1:  16x16      32x8        8x32
+											//           2:  32x32      32x16      16x32
+											//           3:  64x64      64x32      32x64
+		u16 TileIndex : 10;					// 32-41: Tile index; 0...1023
+
+		u16 Priority : 2;						// 42-43: Rendering priority; 0...3, where 0 is highest priority and 3 is lowest priority
+		u16 PaletteIndex : 4;					// 44-47: Palette index; 0...15
+#else
+		union
+		{
+			u16 attr0;
+
+			struct
+			{
+				u16 Y : 8;					//  0- 7: Sprite Y-coordinate location within the framebuffer; 0...255
+				u16 Shape : 2;				// 14-15: OBJ shape; 0=Square, 1=Horizontal, 2=Vertical, 3=Prohibited
+				u16 PaletteMode : 1;			//    13: Color/palette select; 0=16 palettes of 16 colors each, 1=Single palette of 256 colors
+				u16 Mosaic : 1;				//    12: Mosaic render: 0=Disable, 1=Enable
+				u16 Mode : 2;					// 10-11: OBJ mode; 0=Normal, 1=Transparent, 2=Window, 3=Bitmap
+				u16 Disable : 1;				//     9: OBJ disable flag, only if Bit8 is cleared; 0=Perform render, 1=Do not perform render
+				u16 RotScale : 1;				//     8: Perform rotation/scaling; 0=Disable, 1=Enable
+			};
+
+			struct
+			{
+				u16 : 8;
+				u16 : 6;
+				u16 DoubleSize : 1;			//     9: Perform double-size render, only if Bit8 is set; 0=Disable, 1=Enable
+				u16 : 1;
+			};
+		};
+
+		// 16-31: Whenever this is used, you will need to explicitly convert endianness.
+		u16 Size : 2;							// 30-31: OBJ size, interacts with Bit 14-15
+											//
+											//        Size| Square | Horizontal | Vertical
+											//           0:   8x8       16x8        8x16
+											//           1:  16x16      32x8        8x32
+											//           2:  32x32      32x16      16x32
+											//           3:  64x64      64x32      32x64
+		u16 VFlip : 1;						//    29: Flip sprite vertically; 0=Normal, 1=Flip
+		u16 HFlip : 1;						//    28: Flip sprite horizontally; 0=Normal, 1=Flip
+		u16 RotScaleIndex : 3;				// 25-27: Rotation/scaling parameter selection; 0...31
+		s16 X : 9;							// 16-24: Sprite X-coordinate location within the framebuffer; 0...511
+
+		// 32-47: Whenever this is used, you will need to explicitly convert endianness.
+		u16 PaletteIndex : 4;					// 44-47: Palette index; 0...15
+		u16 Priority : 2;						// 42-43: Rendering priority; 0...3, where 0 is highest priority and 3 is lowest priority
+		u16 TileIndex : 10;					// 32-41: Tile index; 0...1023
+#endif
+
+		u16 attr3 : 16;						// 48-63: Whenever this is used, you will need to explicitly convert endianness.
+	};
+} OAMAttributes;
+
+enum PaletteMode
+{
+	PaletteMode_16x16 = 0,
+	PaletteMode_1x256 = 1
 };
 
-void SlurpOAM(_OAM_* oam_output, void* oam_buffer, int oam_index);
-u16 SlurpOAMAffineParam(void* oam_buffer, int oam_index);
+/*void SlurpOAM(_OAM_* oam_output, void* oam_buffer, int oam_index);
+u16 SlurpOAMAffineParam(void* oam_buffer, int oam_index);*/
 
 typedef struct
 {
@@ -576,6 +656,9 @@ enum BGType {
 
 extern const BGType GPU_mode2type[8][4];
 
+#define GPU_setBGxHOFS(bg, gpu, val) 
+#define GPU_setBGxVOFS(bg, gpu, val)
+
 struct GPU
 {
 	GPU()
@@ -591,6 +674,7 @@ struct GPU
 
 	_BGxCNT & bgcnt(int num) { return (dispx_st)->dispx_BGxCNT[num].bits; }
 	_DISPCNT & dispCnt() { return dispx_st->dispx_DISPCNT.bits; }
+
 	template<bool MOSAIC> void modeRender(int layer);
 
 	DISPCAPCNT dispCapCnt;
@@ -605,9 +689,14 @@ struct GPU
 	u32 BG_tile_ram[4];
 	u32 BG_map_ram[4];
 
+	u8* _paletteBG;
+	u8* _paletteOBJ;
+
 	u8 BGExtPalSlot[4];
 	u32 BGSize[4][2];
 	BGType BGTypes[4];
+
+	OAMAttributes* _oamList;
 
 	struct MosaicColor {
 		u16 bg[4][256];
@@ -637,7 +726,6 @@ struct GPU
 
 	BOOL bg0HasHighestPrio;
 
-	void * oam;
 	u32	sprMem;
 	u8 sprBoundary;
 	u8 sprBMPBoundary;
@@ -732,6 +820,9 @@ struct GPU
 
 	template<GPU::SpriteRenderMode MODE>
 	void _spriteRender(u8 * dst, u8 * dst_alpha, u8 * typeTab, u8 * prioTab);
+
+	template<GPU::SpriteRenderMode MODE>
+	void GU_spriteRender(u8* dst, u8* dst_alpha, u8* typeTab, u8* prioTab);
 	
 	inline void spriteRender(u8 * dst, u8 * dst_alpha, u8 * typeTab, u8 * prioTab)
 	{
@@ -739,6 +830,14 @@ struct GPU
 			_spriteRender<SPRITE_1D>(dst,dst_alpha,typeTab, prioTab);
 		else
 			_spriteRender<SPRITE_2D>(dst,dst_alpha,typeTab, prioTab);
+	}
+	
+	inline void GU_SpriteRender(u8 * dst, u8 * dst_alpha, u8 * typeTab, u8 * prioTab)
+	{
+		if(spriteRenderMode == SPRITE_1D)
+			GU_spriteRender<SPRITE_1D>(dst,dst_alpha,typeTab, prioTab);
+		else
+			GU_spriteRender<SPRITE_2D>(dst,dst_alpha,typeTab, prioTab);
 	}
 
 
@@ -815,7 +914,7 @@ static void REG_DISPx_pack_test(GPU * gpu)
 }
 #endif
 
-CACHE_ALIGN extern u8 GPU_screen[4*256*192];
+//CACHE_ALIGN extern u8 GPU_screen[4*256*192];
 
 
 GPU * GPU_Init(u8 l);
@@ -839,8 +938,8 @@ typedef struct {
 	u16 offset;
 } NDS_Screen;
 
-extern NDS_Screen MainScreen;
-extern NDS_Screen SubScreen;
+extern volatile NDS_Screen MainScreen;
+extern volatile NDS_Screen SubScreen;
 
 int Screen_Init();
 void Screen_Reset(void);
@@ -862,7 +961,8 @@ void GPU_addBack(GPU *, u8 num);
 int GPU_ChangeGraphicsCore(int coreid);
 
 void GPU_set_DISPCAPCNT(u32 val) ;
-void GPU_RenderLine(NDS_Screen * screen, u16 l, bool skip = false) ;
+void GPU_RenderLine(volatile NDS_Screen * screen, u16 l, bool skip = false) ;
+void GPU_RenderGU(NDS_Screen * screen, u16 l, bool skip = false) ;
 void GPU_setMasterBrightness (GPU *gpu, u16 val);
 
 inline void GPU_setWIN0_H(GPU* gpu, u16 val) { gpu->WIN0H0 = val >> 8; gpu->WIN0H1 = val&0xFF; gpu->need_update_winh[0] = true; }

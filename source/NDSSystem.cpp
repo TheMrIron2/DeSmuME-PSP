@@ -21,6 +21,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include <algorithm>
+
 #include <math.h>
 //#include <zlib.h>
 
@@ -41,7 +42,6 @@
 #include "debug.h"
 //#include "cheatSystem.h"
 //#include "movie.h"
-#include "Disassembler.h"
 #include "FIFO.h"
 #include "readwrite.h"
 #include "registers.h"
@@ -55,35 +55,24 @@
 #include "SPU.h"
 #include "wifi.h"
 
+#include "PSP/FrontEnd.h"
+
+#include"PSP/pspDmac.h"
+#include"PSP/PSPDisplay.h"
+
+#include "melib.h"
+
 #ifdef GDB_STUB
 #include "gdbstub.h"
 #endif
 
-//int xxctr=0;
-//#define LOG_ARM9
-//#define LOG_ARM7
-//#define dolog (currFrameCounter>30)
 bool dolog = false;
-//#define LOG_TO_FILE
-//#define LOG_TO_FILE_REGS
-
-//HCF
-extern BOOL bBlitAll;
-extern int iModoGrafico;
-extern int emula3D;
-int iGetFreeMemory();
-int debuga = 0;
-
 //===============================================================
 FILE *fp_dis7 = NULL;
 FILE *fp_dis9 = NULL;
 
-PathInfo path;
-
 TCommonSettings CommonSettings;
-static BaseDriver _stub_driver;
-BaseDriver* driver = &_stub_driver;
-std::string InputDisplayString;
+PathInfo path;
 
 static BOOL LidClosed = FALSE;
 static u8	countLid = 0;
@@ -102,12 +91,101 @@ int LagFrameFlag;
 int lastLag;
 int TotalLagFrames;
 
+
 TSCalInfo TSCal;
 
 namespace DLDI
 {
 	bool tryPatch(void* data, size_t size, unsigned int device);
 }
+
+class FrameSkipper
+{
+public:
+	void RequestSkip()
+	{
+		nextSkip = true;
+	}
+	void OmitSkip(bool force, bool forceEvenIfCapturing=false)
+	{
+		nextSkip = false;
+		if((force && consecutiveNonCaptures > 30) || forceEvenIfCapturing)
+		{
+			SkipCur2DFrame = false;
+			SkipCur3DFrame = false;
+			SkipNext2DFrame = false;
+			if(forceEvenIfCapturing)
+				consecutiveNonCaptures = 0;
+		}
+	}
+	void Advance()
+	{
+		bool capturing = (MainScreen.gpu->dispCapCnt.enabled || (MainScreen.gpu->dispCapCnt.val & 0x80000000));
+
+		if(capturing && consecutiveNonCaptures > 30)
+		{
+			// the worst-looking graphics corruption problems from frameskip
+			// are the result of skipping the capture on first frame it turns on.
+			// so we do this to handle the capture immediately,
+			// despite the risk of 1 frame of 2d/3d mismatch or wrong screen display.
+			SkipNext2DFrame = false;
+			nextSkip = false;
+		}
+		else if(lastOffset != MainScreen.offset && lastSkip && !skipped)
+		{
+			// if we're switching from not skipping to skipping
+			// and the screens are also switching around this frame,
+			// go for 1 extra frame without skipping.
+			// this avoids the scenario where we only draw one of the two screens
+			// when a game is switching screens every frame.
+			nextSkip = false;
+		}
+
+		if(capturing)
+			consecutiveNonCaptures = 0;
+		else if(!(consecutiveNonCaptures > 9000)) // arbitrary cap to avoid eventual wrap
+			consecutiveNonCaptures++;
+		lastLastOffset = lastOffset;
+		lastOffset = MainScreen.offset;
+		lastSkip = skipped;
+		skipped = nextSkip;
+		nextSkip = false;
+
+		SkipCur2DFrame = SkipNext2DFrame;
+		SkipCur3DFrame = skipped;
+		SkipNext2DFrame = skipped;
+	}
+	FORCEINLINE volatile bool ShouldSkip2D()
+	{
+		return SkipCur2DFrame;
+	}
+	FORCEINLINE bool ShouldSkip3D()
+	{
+		return SkipCur3DFrame;
+	}
+	FrameSkipper()
+	{
+		nextSkip = false;
+		skipped = false;
+		lastSkip = false;
+		lastOffset = 0;
+		SkipCur2DFrame = false;
+		SkipCur3DFrame = false;
+		SkipNext2DFrame = false;
+		consecutiveNonCaptures = 0;
+	}
+private:
+	bool nextSkip;
+	bool skipped;
+	bool lastSkip;
+	int lastOffset;
+	int lastLastOffset;
+	int consecutiveNonCaptures;
+	volatile bool SkipCur2DFrame;
+	bool SkipCur3DFrame;
+	bool SkipNext2DFrame;
+};
+static FrameSkipper frameSkipper;
 
 void Desmume_InitOnce()
 {
@@ -145,15 +223,55 @@ void NDS_RunAdvansceneAutoImport()
 	}
 }
 
+//int renderScreen(unsigned int sz, void * data)
+int renderScreenSingle(JobData data)
+{
+	/*if (!GU) {
+		GPU_RenderLine(&MainScreen, nds.VCount, frameSkipper.ShouldSkip2D());
+		GPU_RenderLine(&SubScreen, nds.VCount, frameSkipper.ShouldSkip2D());
+		return;
+	}*/
+	int v_count = (int)data;
+	GPU_RenderLine(&MainScreen, v_count, frameSkipper.ShouldSkip2D());
+	GPU_RenderLine(&SubScreen, v_count, frameSkipper.ShouldSkip2D());
+	return 0;
+}
+
+void renderScreenFull()
+{
+	/*if (!GU) {
+		GPU_RenderLine(&MainScreen, nds.VCount, frameSkipper.ShouldSkip2D());
+		GPU_RenderLine(&SubScreen, nds.VCount, frameSkipper.ShouldSkip2D());
+		return;
+	}*/
+	for (int i = 0; i < 192;++i) {
+		GPU_RenderLine(&MainScreen, i, frameSkipper.ShouldSkip2D());
+		GPU_RenderLine(&SubScreen, i, frameSkipper.ShouldSkip2D());
+	}
+}
+
+
+
+int renderScreen(JobData data)
+{
+	bool rend = (bool)data;
+
+	for (int i = 0;i < 192;++i) {
+		GPU_RenderLine(&MainScreen, i, rend);
+		GPU_RenderLine(&SubScreen, i, rend);
+	}
+
+	return 0;
+}
+
 int NDS_Init()
 {
 	nds.idleFrameCounter = 0;
 	memset(nds.runCycleCollector,0,sizeof(nds.runCycleCollector));
 	MMU_Init();
 
-	//got to print this somewhere..
-	//("%s\n", EMU_DESMUME_NAME_AND_VERSION());
-
+	//gpu_Thread = sceKernelCreateThread("gpu_Thread", &renderScreen, 0x18, 0x10000, 0, NULL);
+	
 	if (Screen_Init() != 0)
 		return -1;
 
@@ -167,6 +285,8 @@ int NDS_Init()
 		//why is this done here? shitty engineering. not intended.
 		NDS_RunAdvansceneAutoImport();
 	}
+
+	J_Init(false);
 
 	gfx3d_init();
 
@@ -183,7 +303,7 @@ int NDS_Init()
 	if (SPU_Init(SNDCORE_DUMMY, 740) != 0)
 		return -1;
 
-	WIFI_Init() ;
+//	WIFI_Init() ;
 
 //	cheats = new CHEATS();
 //	cheatSearch = new CHEATSEARCH();
@@ -675,7 +795,7 @@ int NDS_LoadROM(const char *filename, const char *physicalName, const char *logi
 	if (filename == NULL)
 		return -1;
 
-	vdDejaLog("InitPath ");
+	//vdDejaLog("InitPath ");
 
 	ret = rom_init_path(filename, physicalName, logicalFilename);
 	if (ret < 1)
@@ -686,7 +806,7 @@ int NDS_LoadROM(const char *filename, const char *physicalName, const char *logi
 //	FCEUI_StopMovie();
 
 
-	vdDejaLog("Checkvalidrom ");
+	//vdDejaLog("Checkvalidrom ");
 
 
 	//check whether this rom is any kind of valid
@@ -696,7 +816,7 @@ int NDS_LoadROM(const char *filename, const char *physicalName, const char *logi
 		return -1;
 	}
 
-	vdDejaLog("gameinfo-populate ");
+	//vdDejaLog("gameinfo-populate ");
 
 
 	gameInfo.populate();
@@ -709,7 +829,7 @@ int NDS_LoadROM(const char *filename, const char *physicalName, const char *logi
     **/
 		gameInfo.crc = 0;
 
-	vdDejaLog("chipID ");
+	//vdDejaLog("chipID ");
 
 
 	gameInfo.chipID  = 0xC2;														// The Manufacturer ID is defined by JEDEC (C2h = Macronix)
@@ -733,7 +853,7 @@ int NDS_LoadROM(const char *filename, const char *physicalName, const char *logi
 		gameInfo.chipID |= (0x00 << 24);
 	}
 
-	vdDejaLog("INFO-game ");
+	//vdDejaLog("INFO-game ");
 
 
 	INFO("\nROM game code: %c%c%c%c\n", gameInfo.header.gameCode[0], gameInfo.header.gameCode[1], gameInfo.header.gameCode[2], gameInfo.header.gameCode[3]);
@@ -754,7 +874,7 @@ int NDS_LoadROM(const char *filename, const char *physicalName, const char *logi
 	buf[3] = gameInfo.header.gameCode[3];
 	buf[4] = 0;
 
-	vdDejaLog("check-db ");
+	//vdDejaLog("check-db ");
 
 	if (advsc.checkDB(buf, gameInfo.crc))
 	{
@@ -808,7 +928,7 @@ int NDS_LoadROM(const char *filename, const char *physicalName, const char *logi
 	}
 	*/
 
-	vdDejaLog("NDS-REset ");
+	//vdDejaLog("NDS-REset ");
 
 	NDS_Reset();
 
@@ -830,99 +950,11 @@ void NDS_TriggerCardEjectIRQ()
 }
 
 
-class FrameSkipper
-{
-public:
-	void RequestSkip()
-	{
-		nextSkip = true;
-	}
-	void OmitSkip(bool force, bool forceEvenIfCapturing=false)
-	{
-		nextSkip = false;
-		if((force && consecutiveNonCaptures > 30) || forceEvenIfCapturing)
-		{
-			SkipCur2DFrame = false;
-			SkipCur3DFrame = false;
-			SkipNext2DFrame = false;
-			if(forceEvenIfCapturing)
-				consecutiveNonCaptures = 0;
-		}
-	}
-	void Advance()
-	{
-		bool capturing = (MainScreen.gpu->dispCapCnt.enabled || (MainScreen.gpu->dispCapCnt.val & 0x80000000));
-
-		if(capturing && consecutiveNonCaptures > 30)
-		{
-			// the worst-looking graphics corruption problems from frameskip
-			// are the result of skipping the capture on first frame it turns on.
-			// so we do this to handle the capture immediately,
-			// despite the risk of 1 frame of 2d/3d mismatch or wrong screen display.
-			SkipNext2DFrame = false;
-			nextSkip = false;
-		}
-		else if(lastOffset != MainScreen.offset && lastSkip && !skipped)
-		{
-			// if we're switching from not skipping to skipping
-			// and the screens are also switching around this frame,
-			// go for 1 extra frame without skipping.
-			// this avoids the scenario where we only draw one of the two screens
-			// when a game is switching screens every frame.
-			nextSkip = false;
-		}
-
-		if(capturing)
-			consecutiveNonCaptures = 0;
-		else if(!(consecutiveNonCaptures > 9000)) // arbitrary cap to avoid eventual wrap
-			consecutiveNonCaptures++;
-		lastLastOffset = lastOffset;
-		lastOffset = MainScreen.offset;
-		lastSkip = skipped;
-		skipped = nextSkip;
-		nextSkip = false;
-
-		SkipCur2DFrame = SkipNext2DFrame;
-		SkipCur3DFrame = skipped;
-		SkipNext2DFrame = skipped;
-	}
-	FORCEINLINE bool ShouldSkip2D()
-	{
-		return SkipCur2DFrame;
-	}
-	FORCEINLINE bool ShouldSkip3D()
-	{
-		return SkipCur3DFrame;
-	}
-	FrameSkipper()
-	{
-		nextSkip = false;
-		skipped = false;
-		lastSkip = false;
-		lastOffset = 0;
-		SkipCur2DFrame = false;
-		SkipCur3DFrame = false;
-		SkipNext2DFrame = false;
-		consecutiveNonCaptures = 0;
-	}
-private:
-	bool nextSkip;
-	bool skipped;
-	bool lastSkip;
-	int lastOffset;
-	int lastLastOffset;
-	int consecutiveNonCaptures;
-	bool SkipCur2DFrame;
-	bool SkipCur3DFrame;
-	bool SkipNext2DFrame;
-};
-static FrameSkipper frameSkipper;
-
 
 void NDS_SkipNextFrame() {
-	if (!driver->AVI_IsRecording()) {
+	//if (!driver->AVI_IsRecording()) {
 		frameSkipper.RequestSkip();
-	}
+//	}
 }
 void NDS_OmitFrameSkip(int force) {
 	frameSkipper.OmitSkip(force > 0, force > 1);
@@ -983,7 +1015,7 @@ struct TSequenceItem_GXFIFO : public TSequenceItem
 	FORCEINLINE void exec()
 	{
 //		IF_DEVELOPER(DEBUG_statistics.sequencerExecutionCounters[4]++);
-		while(isTriggered()) {
+		/*while(isTriggered())*/ {
 			enabled = false;
 			//HCF 3D
 			//if(emula3D)
@@ -1068,6 +1100,8 @@ template<int procnum, int num> struct TSequenceItem_Timer : public TSequenceItem
 	}
 };
 
+//Stardust::Profiling::Profiler pf;
+
 template<int procnum, int chan> struct TSequenceItem_DMA : public TSequenceItem
 {
 	DmaController* controller;
@@ -1091,9 +1125,15 @@ template<int procnum, int chan> struct TSequenceItem_DMA : public TSequenceItem
 //		IF_DEVELOPER(DEBUG_statistics.sequencerExecutionCounters[5+procnum*4+chan]++);
 
 		//if (nds.freezeBus) return;
-
+	
 		//printf("exec from TSequenceItem_DMA: %d %d\n",procnum,chan);
-		controller->exec();
+		/*if (controller->startmode == EDMAMode_GXFifo) {
+			SDE_PROFILE(pf, controller->exec(), "DMA GFX");
+			pf.outputStats("dma.txt");
+		}
+		else*/
+			controller->exec();
+
 //		//give gxfifo dmas a chance to re-trigger
 //		if(MMU.DMAStartTime[procnum][chan] == EDMAMode_GXFifo) {
 //			MMU.DMAing[procnum][chan] = FALSE;
@@ -1331,11 +1371,7 @@ void Sequencer::init()
 //this isnt helping much right now. work on it later
 //#include "utils/task.h"
 //Task taskSubGpu(true);
-//void* renderSubScreen(void*)
-//{
-//	GPU_RenderLine(&SubScreen, nds.VCount, SkipCur2DFrame);
-//	return NULL;
-//}
+
 
 static void execHardware_hblank()
 {
@@ -1344,10 +1380,11 @@ static void execHardware_hblank()
 	//by drawing scanline N at the end of drawing time (but before subsequent interrupt or hdma-driven events happen)
 	//don't try to do this at the end of the scanline, because some games (sonic classics) may use hblank IRQ to set
 	//scroll regs for the next scanline
-	if(nds.VCount<192)
+	//if(nds.VCount > 1 &&nds.VCount < 191)
+	if(nds.VCount < 192)
 	{
 		//taskSubGpu.execute(renderSubScreen,NULL);
-		if( !bBlitAll )
+		/*if( !bBlitAll )
 		{
 			//HCF Solo se renderiza lo que se muestra 
 			switch(iModoGrafico)
@@ -1368,20 +1405,42 @@ static void execHardware_hblank()
 					break;
 			}
 		}
-		else
-		{
-			GPU_RenderLine(&MainScreen, nds.VCount, frameSkipper.ShouldSkip2D());
-			GPU_RenderLine(&SubScreen, nds.VCount, frameSkipper.ShouldSkip2D());
-		}
+		else*/
+		
 		//taskSubGpu.finish();
 
+		//if(J_Completed())
+			/*struct Job * gpu = (struct Job*)malloc(sizeof(struct Job));
+
+			gpu->jobInfo.id = 1;
+			gpu->jobInfo.execMode = MELIB_EXEC_CPU;
+			
+			gpu->function = &renderScreen;
+			gpu->data = 0;
+
+			//finished = false;
+			
+			J_AddJob(gpu);
+			J_DispatchJobs(0.0f);*/
+		
+		//sceKernelStartThread(gpu_Thread,0,NULL);
+		/*if (!ARM9ONME || SkipMEDraw) {
+			scr_count++;
+			renderScreenSingle();
+		}*/
+		/*sceKernelDcacheWritebackInvalidateAll();
+
+		if (ME_JobDone()) 
+			J_EXECUTE_ME_ONCE(&renderScreenSingle, (int)nds.VCount);*/
+		
 		//trigger hblank dmas
 		//but notice, we do that just after we finished drawing the line
 		//(values copied by this hdma should not be used until the next scanline)
-		triggerDma(EDMAMode_HBlank);
+		if (ME_JobDone())
+			triggerDma(EDMAMode_HBlank);
 	}
 
-	if(nds.VCount==262)
+/*	if(nds.VCount==262)
 	{
 		//we need to trigger one last hblank dma since 
 		//a. we're sort of lagged behind by one scanline
@@ -1394,7 +1453,7 @@ static void execHardware_hblank()
 
 		//BUT! this was removed in order to make glitches in megaman zero collection (mmz 4 1st level) work.
 		//and, it seems that it is no longer necessary in nsmb. perhaps something else fixed it
-	}
+	}*/
 
 
 	//turn on hblank status bit
@@ -1407,9 +1466,10 @@ static void execHardware_hblank()
 
 	//emulation housekeeping. for some reason we always do this at hblank,
 	//even though it sounds more reasonable to do it at hstart
-	SPU_Emulate_core();
-	driver->AVI_SoundUpdate(SPU_core->outbuf,spu_core_samples);
-	WAV_WavSoundUpdate(SPU_core->outbuf,spu_core_samples);
+	if (my_config.enable_sound)
+		SPU_Emulate_core();
+	//driver->AVI_SoundUpdate(SPU_core->outbuf,spu_core_samples);
+	//WAV_WavSoundUpdate(SPU_core->outbuf,spu_core_samples);
 }
 
 static void execHardware_hstart_vblankEnd()
@@ -1438,7 +1498,10 @@ static void execHardware_hstart_vblankStart()
 		}
 
 	//trigger vblank dmas
-	triggerDma(EDMAMode_VBlank);
+	if (ME_JobDone() && my_config.PerFectVTiming)
+		triggerDma(EDMAMode_VBlank);
+	else if (!my_config.PerFectVTiming)
+		triggerDma(EDMAMode_VBlank);
 
 	//tracking for arm9 load average
 	nds.runCycleCollector[0][nds.idleFrameCounter] = 1120380-nds.idleCycles[0];
@@ -1524,6 +1587,7 @@ static void execHardware_hstart_irq()
 
 static void execHardware_hstart()
 {
+
 	nds.VCount++;
 
 	//end of 3d vblank
@@ -1535,9 +1599,10 @@ static void execHardware_hstart()
 	//if((CommonSettings.rigorous_timing && nds.VCount==214) || (!CommonSettings.rigorous_timing && nds.VCount==262))
 	if( nds.VCount==262 )
 	{
-		//HCF 3D
-		if(emula3D)
+
+		//if(my_config.Render3D)
 			gfx3d_VBlankEndSignal(frameSkipper.ShouldSkip3D());
+		
 	}
 
 	if(nds.VCount==263)
@@ -1550,15 +1615,26 @@ static void execHardware_hstart()
 		//when the vcount hits 262, vblank ends (oam pre-renders by one scanline)
 		execHardware_hstart_vblankEnd();
 	}
-	else if(nds.VCount==192)
+	if(nds.VCount==192)
 	{
 		//turn on vblank status bit
-		T1WriteWord(MMU.ARM9_REG, 4, T1ReadWord(MMU.ARM9_REG, 4) | 1);
-		T1WriteWord(MMU.ARM7_REG, 4, T1ReadWord(MMU.ARM7_REG, 4) | 1);
+		
+			T1WriteWord(MMU.ARM9_REG, 4, T1ReadWord(MMU.ARM9_REG, 4) | 1);
+			T1WriteWord(MMU.ARM7_REG, 4, T1ReadWord(MMU.ARM7_REG, 4) | 1);
+		
+			//check whether we'll need to fire vblank irqs
 
-		//check whether we'll need to fire vblank irqs
-		if(T1ReadWord(MMU.ARM9_REG, 4) & 0x8) MMU.reg_IF_pending[ARMCPU_ARM9] |= (1<<IRQ_BIT_LCD_VBLANK);
-		if(T1ReadWord(MMU.ARM7_REG, 4) & 0x8) MMU.reg_IF_pending[ARMCPU_ARM7] |= (1<<IRQ_BIT_LCD_VBLANK);
+		if (ME_JobDone() && my_config.PerFectVTiming) {
+			
+			if (T1ReadWord(MMU.ARM9_REG, 4) & 0x8) MMU.reg_IF_pending[ARMCPU_ARM9] |= (1 << IRQ_BIT_LCD_VBLANK);
+			if (T1ReadWord(MMU.ARM7_REG, 4) & 0x8) MMU.reg_IF_pending[ARMCPU_ARM7] |= (1 << IRQ_BIT_LCD_VBLANK);
+
+		}
+		else if (!my_config.PerFectVTiming) {
+			if (T1ReadWord(MMU.ARM9_REG, 4) & 0x8) MMU.reg_IF_pending[ARMCPU_ARM9] |= (1 << IRQ_BIT_LCD_VBLANK);
+			if (T1ReadWord(MMU.ARM7_REG, 4) & 0x8) MMU.reg_IF_pending[ARMCPU_ARM7] |= (1 << IRQ_BIT_LCD_VBLANK);
+		}
+		
 
 		//this is important for the character select in Dragon Ball Kai - Ultimate Butouden
 		//it seems if you allow the 3d to begin before the vblank, then it will get interrupted and not complete.
@@ -1566,11 +1642,16 @@ static void execHardware_hstart()
 		//therefore, this can't happen until sometime after vblank.
 		//devil survivor 2 will have screens get stuck if this is on any other scanline.
 		//obviously 192 is the right choice.
-		//HCF 3D
-		//if(emula3D)
-			gfx3d_VBlankSignal();
+
+		gfx3d_VBlankSignal();
 		//this isnt important for any known game, but it would be nice to prove it.
-		NDS_RescheduleGXFIFO(392*2);
+		//It seems not to be important --  XIRO 
+		//NDS_RescheduleGXFIFO(392 * 2);
+
+		//Render 3D here
+		if (!frameSkipper.ShouldSkip3D() && my_config.Render3D && ME_JobDone()) {
+			gfx3d_VBlankEndSignal(false);
+		}
 	}
 
 	//write the new vcount
@@ -1584,12 +1665,13 @@ static void execHardware_hstart()
 	T1WriteWord(MMU.ARM7_REG, 4, T1ReadWord(MMU.ARM7_REG, 4) & 0xFFFD);
 
 	//handle vcount status
-	execHardware_hstart_vcount();
-
+	execHardware_hstart_vcount();	
+	
 	//trigger hstart dmas
+	
 	triggerDma(EDMAMode_HStart);
 
-	if(nds.VCount<192)
+	/*if(nds.VCount<192)
 	{
 		//this is hacky.
 		//there is a corresponding hack in doDMA.
@@ -1597,7 +1679,7 @@ static void execHardware_hstart()
 		//but that isnt even possible until we have some sort of sub-scanline timing.
 		//it may not be necessary.
 		triggerDma(EDMAMode_MemDisplay);
-	}
+	}*/
 }
 
 void NDS_Reschedule()
@@ -1675,12 +1757,12 @@ void Sequencer::execHardware()
 			//(used to be 3168)
 			//hstart is actually 8 dots before the visible drawing begins
 			//we're going to run 1 here and then run 7 in the next case
-			dispcnt.timestamp += 1*6*2;
+			dispcnt.timestamp += 12;
 			dispcnt.param = ESI_DISPCNT_HStartIRQ;
 			break;
 		case ESI_DISPCNT_HStartIRQ:
 			execHardware_hstart_irq();
-			dispcnt.timestamp += 7*6*2;
+			dispcnt.timestamp += 84;
 			dispcnt.param = ESI_DISPCNT_HDraw;
 			break;
 			
@@ -1689,7 +1771,7 @@ void Sequencer::execHardware()
 			//duration of non-blanking period is ~1606 clocks (gbatek agrees) [but says its different on arm7]
 			//im gonna call this 267 dots = 267*6=1602
 			//so, this event lasts 267 dots minus the 8 dot preroll
-			dispcnt.timestamp += (267-8)*6*2;
+			dispcnt.timestamp += 3108;
 			dispcnt.param = ESI_DISPCNT_HBlank;
 			break;
 
@@ -1697,7 +1779,7 @@ void Sequencer::execHardware()
 			execHardware_hblank();
 			//(once this was 1092 or 1092/12=91 dots.)
 			//there are surely 355 dots per scanline, less 267 for non-blanking period. the rest is hblank and then after that is hstart
-			dispcnt.timestamp += (355-267)*6*2;
+			dispcnt.timestamp += 1056;
 			dispcnt.param = ESI_DISPCNT_HStart;
 			break;
 		}
@@ -1715,20 +1797,23 @@ if(!skipaFuncs)
 			wifi.timestamp += kWifiCycles;
 		}
 	#endif
+
+		if (sequencer.sqrtunit.isTriggered()) sequencer.sqrtunit.exec();
+		if (sequencer.divider.isTriggered()) sequencer.divider.exec();
+		if (sequencer.gxfifo.isTriggered()) sequencer.gxfifo.exec();
 		
-		if(divider.isTriggered()) divider.exec();
-		if(sqrtunit.isTriggered()) sqrtunit.exec();
-		if(gxfifo.isTriggered()) gxfifo.exec();
+		
+#define test(X,Y) if(sequencer.timer_##X##_##Y .enabled) if(sequencer.timer_##X##_##Y .isTriggered()) sequencer.timer_##X##_##Y .exec();
+		test(0, 0); test(0, 1); test(0, 2); test(0, 3);
+		test(1, 0); test(1, 1); test(1, 2); test(1, 3);
+#undef test
+
+#define test(X,Y) if(sequencer.dma_##X##_##Y .isTriggered()) sequencer.dma_##X##_##Y .exec();
+		test(0, 0); test(0, 1); test(0, 2); test(0, 3);
+		test(1, 0); test(1, 1); test(1, 2); test(1, 3);
+#undef test
 
 
-	#define test(X,Y) if(dma_##X##_##Y .isTriggered()) dma_##X##_##Y .exec();
-		test(0,0); test(0,1); test(0,2); test(0,3);
-		test(1,0); test(1,1); test(1,2); test(1,3);
-	#undef test
-	#define test(X,Y) if(timer_##X##_##Y .enabled) if(timer_##X##_##Y .isTriggered()) timer_##X##_##Y .exec();
-		test(0,0); test(0,1); test(0,2); test(0,3);
-		test(1,0); test(1,1); test(1,2); test(1,3);
-	#undef test
 /*
 	skipaFuncs = 1;
 }
@@ -1737,6 +1822,12 @@ else
 	skipaFuncs = 0;
 }
 */
+
+}
+
+volatile bool finish = false;
+
+void ExecDMA_TIMER() {
 
 }
 
@@ -1856,6 +1947,7 @@ FORCEINLINE void arm7log()
 #endif
 }
 
+
 //these have not been tuned very well yet.
 static const int kMaxWork = 4000;
 static const int kIrqWait = 4000;
@@ -1881,62 +1973,22 @@ template<bool doarm9, bool doarm7>
 static /*donotinline*/ std::pair<s32,s32> armInnerLoop(
 	const u64 nds_timer_base, const s32 s32next, s32 arm9, s32 arm7)
 {
-	char achJJJ[64];
 
 	s32 timer = minarmtime<doarm9,doarm7>(arm9,arm7);
 
-	/*
-	if(debuga)
-	{
-		memset(achJJJ, 0x00, 64);
-		sprintf(achJJJ,"  arm9 %d  arm7 %d  timer %d --  ", arm9, arm7, timer);
-		vdDejaLog(achJJJ);
-	}
-	*/
-
-
-	/*
-	if(1)
-	{
-		memset(achJJJ, 0x00, 64);
-		sprintf(achJJJ,"  %d   ", iGetFreeMemory());
-		vdDejaLog(achJJJ);
-	}
-	*/
-
 	while(timer < s32next && !sequencer.reschedule )   //&& execute)
 	{
-		/*
-		if(debuga)
-		{
-			memset(achJJJ, 0x00, 64);
-			sprintf(achJJJ," || arm9 %d  arm7 %d  timer %d || ", arm9, arm7, timer);
-			vdDejaLog(achJJJ);
-		}
-		*/
 
 		if(doarm9 && (!doarm7 || arm9 <= timer))
 		{
 			if(!NDS_ARM9.waitIRQ&&!nds.freezeBus)
 			{
-				//if(debuga)
-				//	vdDejaLog(" ARM9LOG ");
-				
-				arm9log();
-				
-				//if(debuga)
-				//	vdDejaLog(" DEBUG9 ");
-				
-				debug();
-
-				//if(debuga)
-				//	vdDejaLog(" ArmCpuExec9 ");
-				
-
 #ifdef HAVE_JIT
 				arm9 += armcpu_exec<ARMCPU_ARM9,jit>();
 #else
-				arm9 += armcpu_exec<ARMCPU_ARM9>();
+				
+				arm9 += armcpu_exec<ARMCPU_ARM9, false>();
+				//CPUThreaded<ARMCPU_ARM9>(&arm9);
 #endif
 				#ifdef DEVELOPER
 					nds_debug_continuing[0] = false;
@@ -1945,7 +1997,7 @@ static /*donotinline*/ std::pair<s32,s32> armInnerLoop(
 			else
 			{
 				//if(debuga)
-				//	vdDejaLog(" ELSE ");
+				//	//vdDejaLog(" ELSE ");
 				
 
 				s32 temp = arm9;
@@ -1958,18 +2010,23 @@ static /*donotinline*/ std::pair<s32,s32> armInnerLoop(
 		{
 			if(!NDS_ARM7.waitIRQ&&!nds.freezeBus)
 			{
-				//if(debuga)
-				//	vdDejaLog(" ARM7LOG ");
-				
-				arm7log();
-
-				//if(debuga)
-				//	vdDejaLog(" ARMCpuEXec7 ");
 				
 #ifdef HAVE_JIT
 				arm7 += (armcpu_exec<ARMCPU_ARM7,jit>()<<1);
-#else
-				arm7 += (armcpu_exec<ARMCPU_ARM7>()<<1);
+#else			
+				
+				if (my_config.ARM_ME) {
+					//arm7 += ME_JobReturnValue();
+					J_EXECUTE_ME_ONCE(&ARM7_ME, 0);
+					arm7 += ME_JobReturnValue();
+				}
+				else
+				arm7 += (armcpu_exec<ARMCPU_ARM7,false>()<<1);
+				/*CPUThreaded<ARMCPU_ARM7>(&arm7);
+
+				//printf("7 executed\n");
+
+				arm7 += _valME<<1;*/
 #endif
 				#ifdef DEVELOPER
 					nds_debug_continuing[1] = false;
@@ -1978,7 +2035,7 @@ static /*donotinline*/ std::pair<s32,s32> armInnerLoop(
 			else
 			{
 				//if(debuga)
-				//	vdDejaLog(" ELSE 7 ");
+				//	//vdDejaLog(" ELSE 7 ");
 				
 
 				s32 temp = arm7;
@@ -1987,7 +2044,7 @@ static /*donotinline*/ std::pair<s32,s32> armInnerLoop(
 				if(arm7 == s32next)
 				{
 					//if(debuga)
-					//	vdDejaLog(" EQUALITE!! ");
+					//	//vdDejaLog(" EQUALITE!! ");
 				
 
 					nds_timer = nds_timer_base + minarmtime<doarm9,false>(arm9,arm7);
@@ -2001,7 +2058,7 @@ static /*donotinline*/ std::pair<s32,s32> armInnerLoop(
 		}
 
 		//if(debuga)
-		//	vdDejaLog(" MinARM ");
+		//	//vdDejaLog(" MinARM ");
 				
 		timer = minarmtime<doarm9,doarm7>(arm9,arm7);
 
@@ -2010,7 +2067,7 @@ static /*donotinline*/ std::pair<s32,s32> armInnerLoop(
 		{
 			memset(achJJJ, 0x00, 64);
 			sprintf(achJJJ," || arm99 %d  arm77 %d  timerR %d || ", arm9, arm7, timer);
-			vdDejaLog(achJJJ);
+			//vdDejaLog(achJJJ);
 		}
 		*/
 
@@ -2021,17 +2078,18 @@ static /*donotinline*/ std::pair<s32,s32> armInnerLoop(
 		{
 			memset(achJJJ, 0x00, 64);
 			sprintf(achJJJ," (((( NDSTIMER %d TIMERBASE %d TIMER %d )))) ", nds_timer, nds_timer_base, timer);
-			vdDejaLog(achJJJ);
+			//vdDejaLog(achJJJ);
 		}
 		*/
 	}
 
 	//if(debuga)
-	//	vdDejaLog(" AL PAIR FINAL ");
+	//	//vdDejaLog(" AL PAIR FINAL ");
 				
 
 	return std::make_pair(arm9, arm7);
 }
+
 
 void NDS_debug_break()
 {
@@ -2052,6 +2110,9 @@ void NDS_debug_step()
 	singleStep = true;
 }
 
+bool Draw = true;
+bool BadME = false;
+
 template<bool FORCE>
 void NDS_exec(s32 nb)
 {
@@ -2065,11 +2126,15 @@ void NDS_exec(s32 nb)
 
 	nds.cpuloopIterationCount = 0;
 
+	//StartGU_RENDER();
+
+	
 //	IF_DEVELOPER(for(int i=0;i<32;i++) DEBUG_statistics.sequencerExecutionCounters[i] = 0);
+	//printf("%d\n", scr_count);
 
 	if(nds.sleeping)
 	{
-		//vdDejaLog("SLEEPING");
+		////vdDejaLog("SLEEPING");
 
 
 		//speculative code: if ANY irq happens, wake up the arm7.
@@ -2084,8 +2149,8 @@ void NDS_exec(s32 nb)
 	{
 		for(;;)
 		{
-			//vdDejaLog("FOR;;;");
-
+			////vdDejaLog("FOR;;;");
+			
 
 			//trap the debug-stalled condition
 			#ifdef DEVELOPER
@@ -2113,13 +2178,16 @@ void NDS_exec(s32 nb)
 
 			nds.cpuloopIterationCount++;
 
-			//vdDejaLog("exec HW");
+			////vdDejaLog("exec HW"); 
 
 
 			sequencer.execHardware();
 
-			//vdDejaLog("Tras exec HW");
+			//while (!finish);
+			//finish = false;
+			
 
+			////vdDejaLog("Tras exec HW");
 
 			//break out once per frame
 			if(sequencer.nds_vblankEnded) break;
@@ -2129,21 +2197,16 @@ void NDS_exec(s32 nb)
 			//bail in case the system halted
 			//if(!execute) break;
 
-			//vdDejaLog("INTERRUPTS");
-
+			////vdDejaLog("INTERRUPTS");
 
 			execHardware_interrupts();
 
-			//vdDejaLog("SEQUENCER ver u64");
+			////vdDejaLog("SEQUENCER ver u64");
 
 
 			//find next work unit:
 			u64 next = sequencer.findNext();
 			next = min(next,nds_timer+kMaxWork); //lets set an upper limit for now
-
-			//printf("%d\n",(next-nds_timer));
-
-			//vdDejaLog("asignaciones");
 
 
 			sequencer.reschedule = false;
@@ -2154,13 +2217,6 @@ void NDS_exec(s32 nb)
 			s32 arm7 = (s32)(nds_arm7_timer-nds_timer);
 			s32 s32next = (s32)(next-nds_timer);
 
-			#ifdef DEVELOPER
-				if(singleStep)
-				{
-					s32next = 1;
-				}
-			#endif
-
 #ifdef HAVE_JIT
 				
 			//std::pair<s32,s32> arm9arm7 = CommonSettings.use_jit
@@ -2168,28 +2224,12 @@ void NDS_exec(s32 nb)
 				? armInnerLoop<true,true,true>(nds_timer_base,s32next,arm9,arm7)
 				: armInnerLoop<true,true,false>(nds_timer_base,s32next,arm9,arm7);
 #else
-				//vdDejaLog("INNERLOOP  ");
 
-				/**
-				char achJJJ[64];
-				memset(achJJJ, 0x00, 64);
-				sprintf(achJJJ,"  %d %d %d %d --  ", nds_timer_base,s32next,arm9,arm7);
-				vdDejaLog(achJJJ);
-				if(nds_timer_base == 195972)
-				{
 
-					memset(achJJJ, 0x00, 64);
-					sprintf(achJJJ," MEMO: %d  ", iGetFreeMemory());
-					vdDejaLog(achJJJ);
-					debuga = 1;
-				
-				}
-				***/
-
-				std::pair<s32,s32> arm9arm7 = armInnerLoop<true,true>(nds_timer_base,s32next,arm9,arm7);
+				std::pair<s32, s32> arm9arm7 = armInnerLoop<true, true>(nds_timer_base, s32next, arm9, arm7);
 #endif
 
-				//vdDejaLog("SALE DE INNERLOOP ");
+				////vdDejaLog("SALE DE INNERLOOP ");
 
 			#ifdef DEVELOPER
 				if(singleStep)
@@ -2202,12 +2242,6 @@ void NDS_exec(s32 nb)
 			arm7 = arm9arm7.second;
 			nds_arm7_timer = nds_timer_base+arm7;
 			nds_arm9_timer = nds_timer_base+arm9;
-
-#ifndef NDEBUG
-			//what we find here is dependent on the timing constants above
-			//if(nds_timer>next && (nds_timer-next)>22)
-			//	printf("curious. please report: over by %d\n",(int)(nds_timer-next));
-#endif
 
 			//if we were waiting for an irq, don't wait too long:
 			//let's re-analyze it after this hardware event (this rolls back a big burst of irq waiting which may have been interrupted by a resynch)
@@ -2224,9 +2258,6 @@ void NDS_exec(s32 nb)
 		}
 	}
 
-	//DEBUG_statistics.printSequencerExecutionCounters();
-	//DEBUG_statistics.print();
-
 	//end of frame emulation housekeeping
 	if(LagFrameFlag)
 	{
@@ -2239,17 +2270,16 @@ void NDS_exec(s32 nb)
 		lagframecounter = 0;
 	}
 
-	//vdDejaLog("Casi saliendo");
+	sceKernelDcacheWritebackInvalidateAll();
 
-
-//	currFrameCounter++;
-	DEBUG_Notify.NextFrame();
-	//if (cheats)
-	//	cheats->process();
-
-        #ifdef GDB_STUB
-        gdbstub_mutex_unlock();
-        #endif
+	if (IsEmu() || my_config.ARM_ME) {
+		EMU_SCREEN();
+		renderScreenFull();
+	}else
+	if (ME_JobDone()) {
+		EMU_SCREEN();
+		J_EXECUTE_ME_ONCE(&renderScreen, (int)frameSkipper.ShouldSkip2D());
+	}
 }
 
 template<int PROCNUM> static void execHardware_interrupts_core()
@@ -2498,7 +2528,7 @@ static void PrepareLogfiles()
 
 bool NDS_LegitBoot()
 {
-	//vdDejaLog("LEGIT  ");
+	////vdDejaLog("LEGIT  ");
 
 	#ifdef HAVE_JIT
 		//hack for firmware boot in JIT mode.
@@ -2525,7 +2555,7 @@ bool NDS_LegitBoot()
 //the fake firmware boot-up process
 bool NDS_FakeBoot()
 {
-	vdDejaLog("FAKE  ");
+	//vdDejaLog("FAKE  ");
 
 	NDS_header * header = NDS_getROMHeader();
 
@@ -2535,7 +2565,7 @@ bool NDS_FakeBoot()
 
 	nds.isFakeBooted = true;
 
-	vdDejaLog("crc16  ");
+	//vdDejaLog("crc16  ");
 
 	//since we're bypassing the code to decrypt the secure area, we need to make sure its decrypted first
 	//this has not been validated on big endian systems. it almost positively doesn't work.
@@ -2549,12 +2579,12 @@ bool NDS_FakeBoot()
 		}
 	}
 
-	vdDejaLog("mmu_write  ");
+	//vdDejaLog("mmu_write  ");
 
 	//bios (or firmware) sets this default, which is generally not important for retail games but some homebrews are depending on
 	_MMU_write08<ARMCPU_ARM9>(REG_WRAMCNT,3);
 
-	vdDejaLog("unpak  ");
+	//vdDejaLog("unpak  ");
 
 	//EDIT - whats this firmware and how is it relating to the dummy firmware below
 	//how do these even get used? what is the purpose of unpack and why is it not used by the firmware boot process?
@@ -2564,14 +2594,14 @@ bool NDS_FakeBoot()
 		firmware->loadSettings();
 	}
 
-	vdDejaLog("createdummy  ");
+	//vdDejaLog("createdummy  ");
 
 	// Create the dummy firmware
 	//EDIT - whats dummy firmware and how is relating to the above?
 	//it seems to be emplacing basic firmware data into MMU.fw.data
 	NDS_CreateDummyFirmware(&CommonSettings.fw_config);
 	
-	vdDejaLog("llaves  ");
+	//vdDejaLog("llaves  ");
 
 	//firmware loads the game card arm9 and arm7 programs as specified in rom header
 	{
@@ -2581,11 +2611,11 @@ bool NDS_FakeBoot()
 		u32 dst = header->ARM9cpy;
 		for(u32 i = 0; i < header->ARM9binSize; i+=4)
 		{
-			//vdDejaLog("readrom  ");
+			////vdDejaLog("readrom  ");
 
 			u32 tmp = (hasSecureArea && ((src >= 0x4000) && (src < 0x8000)))?LE_TO_LOCAL_32(*(u32*)(gameInfo.secureArea + (src - 0x4000))):gameInfo.readROM(src);
 
-			//vdDejaLog("writerom  ");
+			////vdDejaLog("writerom  ");
 
 			_MMU_write32<ARMCPU_ARM9>(dst, tmp);
 
@@ -2607,7 +2637,7 @@ bool NDS_FakeBoot()
 		}
 	}
 	
-	vdDejaLog("tempbuffer  ");
+	//vdDejaLog("tempbuffer  ");
 
 	//bios does this (thats weird, though. shouldnt it get changed when the card is swapped in the firmware menu?
 	//right now our firmware menu isnt detecting any change to the card.
@@ -2623,7 +2653,7 @@ bool NDS_FakeBoot()
 			_MMU_write08<ARMCPU_ARM9>(0x027FFC80 + fw_index, temp_buffer[fw_index]);
 	}
 
-	vdDejaLog("dsi  ");
+	//vdDejaLog("dsi  ");
 
 	//something copies the whole header to Main RAM 0x27FFE00 on startup. (http://nocash.emubase.de/gbatek.htm#dscartridgeheader)
 	//once upon a time this copied 0x90 more. this was thought to be wrong, and changed.
@@ -2639,7 +2669,7 @@ bool NDS_FakeBoot()
 			_MMU_write32<ARMCPU_ARM9>(0x027FFE00 + i, gameInfo.readROM(i));
 	}
 
-	vdDejaLog("armcpuinit  ");
+	//vdDejaLog("armcpuinit  ");
 
 	//the firmware will be booting to these entrypoint addresses via BX (well, the arm9 at least; is unverified for the arm7)
 	armcpu_init(&NDS_ARM7, header->ARM7exe);
@@ -2649,7 +2679,7 @@ bool NDS_FakeBoot()
 	MMU.ARM9_REG[0x300] = 1;
 	MMU.ARM7_REG[0x300] = 1;
 
-	vdDejaLog("mmuwritesegundo  ");
+	//vdDejaLog("mmuwritesegundo  ");
 
 	//firmware makes system think it's booted from card -- EXTREMELY IMPORTANT!!! This is actually checked by some things. (which things?) Thanks to cReDiAr
 	_MMU_write08<ARMCPU_ARM7>(0x02FFFC40,0x1); //<zero> removed redundant write to ARM9, this is going to shared main memory. But one has to wonder why r3478 was made which corrected a typo resulting in only ARMCPU_ARM7 getting used.
@@ -2664,7 +2694,7 @@ bool NDS_FakeBoot()
 	_MMU_write16<ARMCPU_ARM9>(0x027FF808, gameInfo.header.headerCRC16);
 
 
-	vdDejaLog("more  ");
+	//vdDejaLog("more  ");
 
 
 	//bitbox 4k demo is so stripped down it relies on default stack values
@@ -2685,7 +2715,7 @@ bool NDS_FakeBoot()
 	//n.b.: im not sure about all these, I dont know enough about arm9 svc/irq/etc modes
 	//and how theyre named in desmume to match them up correctly. i just guessed.
 
-	vdDejaLog("Fat  ");
+	//vdDejaLog("Fat  ");
 
 	//--------------------------------
 	//setup the homebrew argv
@@ -2715,7 +2745,7 @@ bool NDS_FakeBoot()
 	_MMU_write08<ARMCPU_ARM9>(kCommandline+rompath.size(), 0);
 	//--------------------------------
 
-	vdDejaLog("postfakebook  ");
+	//vdDejaLog("postfakebook  ");
 
 	//Call the card post_fakeboot hook to perform additional initialization
 	slot1_device->post_fakeboot(ARMCPU_ARM9);
@@ -2728,7 +2758,7 @@ bool NDS_FakeBoot()
 bool _HACK_DONT_STOPMOVIE = false;
 void NDS_Reset()
 {
-	vdDejaLog("prepare-logs ");
+	//vdDejaLog("prepare-logs ");
 
 	PrepareLogfiles();
 
@@ -2744,11 +2774,13 @@ void NDS_Reset()
 		TotalLagFrames = 0;
 	//}
 
-		vdDejaLog("reset-input ");
+		//vdDejaLog("reset-input ");
 
 	resetUserInput();
 
-	vdDejaLog("asignaciones ");
+	//gpu_Thread = sceKernelCreateThread("dmatimer_Thread", &ExecDMA_TIMER, 0x5, 0x10000, 0, NULL);
+
+	//vdDejaLog("asignaciones ");
 	
 	singleStep = false;
 	nds_debug_continuing[0] = nds_debug_continuing[1] = false;
@@ -2777,15 +2809,15 @@ void NDS_Reset()
 	LidClosed = FALSE;
 	countLid = 0;
 
-	vdDejaLog("mmu_reset ");
+	//vdDejaLog("mmu_reset ");
 
 	MMU_Reset();
 
-	vdDejaLog("Hecho MMU-reset ");
+	//vdDejaLog("Hecho MMU-reset ");
 
 	SetupMMU(nds.Is_DebugConsole(),nds.Is_DSI());
 
-vdDejaLog("jumble   ");
+//vdDejaLog("jumble   ");
 
 	JumbleMemory();
 
@@ -2794,7 +2826,7 @@ vdDejaLog("jumble   ");
 	arm_jit_reset(iUsarDynarec);
 	#endif
 	
-	vdDejaLog("reconstruct ");
+	//vdDejaLog("reconstruct ");
 
 
 	//initialize CP15 specially for this platform
@@ -2805,7 +2837,7 @@ vdDejaLog("jumble   ");
 	NDS_ARM9.intVector = 0xFFFF0000 * (BIT13(cp15.ctrl));
 	NDS_ARM9.LDTBit = !BIT15(cp15.ctrl); //TBit
 
-	vdDejaLog("prepare bios ");
+	//vdDejaLog("prepare bios ");
 
 
 	PrepareBiosARM7();
@@ -2817,13 +2849,13 @@ vdDejaLog("jumble   ");
 		firmware = NULL;
 	}
 
-	vdDejaLog("firmware ");
+	//vdDejaLog("firmware ");
 
 
 	firmware = new CFIRMWARE();
 	firmware->load();
 
-	vdDejaLog("boots ");
+	//vdDejaLog("boots ");
 
 
 	//we will allow a proper firmware boot, if:
@@ -2837,38 +2869,38 @@ vdDejaLog("jumble   ");
 	else
 		bootResult = NDS_FakeBoot();
 
-	vdDejaLog("calibration ");
+	//vdDejaLog("calibration ");
 
 
 	// Init calibration info
 	memcpy(&TSCal, firmware->getTouchCalibrate(), sizeof(TSCalInfo));
 
-	vdDejaLog("screen ");
+	//vdDejaLog("screen ");
 
 
 	Screen_Reset();
 
-	vdDejaLog("3d reset ");
+	//vdDejaLog("3d reset ");
 
 	gfx3d_reset();
 
-vdDejaLog("gpu3d-reset ");
+//vdDejaLog("gpu3d-reset ");
 
 	gpu3D->NDS_3D_Reset();
 
-	vdDejaLog("wifi ");
+	//vdDejaLog("wifi ");
 
 
 	WIFI_Reset();
 	memcpy(FW_Mac, (MMU.fw.data + 0x36), 6);
 
-	vdDejaLog("sound reset ");
+	//vdDejaLog("sound reset ");
 
-
+/*
 	SPU_DeInit();
-	SPU_ReInit(!canBootFromFirmware && bootResult);
+	SPU_ReInit(!canBootFromFirmware && bootResult);*/
 
-	vdDejaLog("schedule ");
+	//vdDejaLog("schedule ");
 
 
 	//this needs to happen last, pretty much, since it establishes the correct scheduling state based on all of the above initialization
@@ -3187,7 +3219,7 @@ static void NDS_applyFinalInput()
 	
 	((u16 *)MMU.ARM7_REG)[0x136>>1] = (u16)padExt;
 
-	InputDisplayString=MakeInputDisplayString(padExt, pad);
+	//InputDisplayString=MakeInputDisplayString(padExt, pad);
 
 	//put into the format we want for the movie system
 	//fRLDUTSBAYXWEg
@@ -3296,3 +3328,4 @@ bool ValidateSlot2Access(u32 procnum, u32 demandSRAMSpeed, u32 demand1stROMSpeed
 //these templates needed to be instantiated manually
 template void NDS_exec<FALSE>(s32 nb);
 template void NDS_exec<TRUE>(s32 nb);
+

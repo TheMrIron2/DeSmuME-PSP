@@ -24,6 +24,8 @@
 #include "encrypt.h"
 #include "wifi.h"
 
+#include "PSP/FrontEnd.h"
+
 #define DFC_ID_CODE	"DeSmuME Firmware User Settings"
 #define DFC_ID_SIZE	sizeof(DFC_ID_CODE)
 #define USER_SETTINGS_SIZE 0x100
@@ -35,9 +37,6 @@
 #define WIFI_AP_SETTINGS_OFF 0x0003FA00
 
 static _KEY1	enc(&MMU.ARM7_BIOS[0x0030]);
-
-//HCF Firmware language
-extern int inIdiomaFirmware;
 
 u16 CFIRMWARE::getBootCodeCRC16()
 {
@@ -943,7 +942,7 @@ void NDS_FillDefaultFirmwareConfigData(NDS_fw_config_data *fw_config) {
 
 	//default to English
 	//fw_config->language = 1;
-	fw_config->language = inIdiomaFirmware;
+	fw_config->language = my_config.firmware_language;
 
 	// default touchscreen calibration
 

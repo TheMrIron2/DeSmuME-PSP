@@ -97,6 +97,15 @@ struct Header
 };
 #include "../../PACKED_END.h"
 
+typedef struct sNDSBanner { //Only for the menu
+	u16 version;			//!< version of the banner.
+	u16 crc;				//!< 16 bit crc/checksum of the banner.
+	u8 reserved[28];
+	u8 icon[512];			//!< 32*32 icon of the game with 4 bit per pixel.
+	u16 palette[16];		//!< the pallete of the icon.
+	char titles[6][512];	//!< title of the game in 6 different languages.
+} __attribute__((__packed__)) tNDSBanner;
+
 
 
 struct Country

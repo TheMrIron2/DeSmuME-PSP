@@ -24,6 +24,8 @@
 #include <istream>
 
 #include "types.h"
+#include "PSP/FrontEnd.h"
+#include "pspvfpu.h"
 
 class EMUFILE;
 
@@ -121,6 +123,14 @@ inline u32 RGB15TO6665(u16 col, u8 alpha5)
 
 // 15-bit to 24-bit depth formula from http://nocash.emubase.de/gbatek.htm#ds3drearplane
 #define DS_DEPTH15TO24(depth) ( dsDepthExtend_15bit_to_24bit[(depth) & 0x7FFF] )
+
+enum PolygonMode
+{
+	POLYGON_MODE_MODULATE = 0,
+	POLYGON_MODE_DECAL = 1,
+	POLYGON_MODE_TOONHIGHLIGHT = 2,
+	POLYGON_MODE_SHADOW = 3
+};
 
 // POLYGON PRIMITIVE TYPES
 enum
@@ -221,13 +231,11 @@ void gfx3d_reset();
 
 typedef struct
 {
-	u8		enableLightFlags;
 	bool	enableLight0;
 	bool	enableLight1;
 	bool	enableLight2;
 	bool	enableLight3;
-	u8		polygonMode;
-	u8		surfaceCullingMode;
+
 	bool	enableRenderBackSurface;
 	bool	enableRenderFrontSurface;
 	bool	enableAlphaDepthWrite;
@@ -238,31 +246,39 @@ typedef struct
 	bool	isWireframe;
 	bool	isOpaque;
 	bool	isTranslucent;
+
+	u8		enableLightFlags;
+	u8		polygonMode;
+	u8		surfaceCullingMode;
 	u8		alpha;
 	u8		polygonID;
 } PolygonAttributes;
 
 typedef struct
 {
-	u16		VRAMOffset;
 	bool	enableRepeatS;
 	bool	enableRepeatT;
 	bool	enableMirroredRepeatS;
 	bool	enableMirroredRepeatT;
+	bool	enableTransparentColor0;
+
 	u8		sizeS;
 	u8		sizeT;
 	u8		texFormat;
-	bool	enableTransparentColor0;
 	u8		coordTransformMode;
+
+	u16		VRAMOffset;
 } PolygonTexParams;
 
 struct POLY {
-	int type; //tri or quad
 	u8 vtxFormat;
 	u16 vertIndexes[4]; //up to four verts can be referenced by this poly
+	int type; //tri or quad
+	//int typeGU; //tri or quad
 	u32 polyAttr, texParam, texPalette; //the hardware rendering params
 	u32 viewport;
 	float miny, maxy;
+	float minz, maxz;
 
 	void setVertIndexes(int a, int b, int c, int d=-1)
 	{
@@ -486,13 +502,17 @@ struct POLY {
 };
 
 //HCF PSP
-#define POLYLIST_SIZE (64)
-//#define POLYLIST_SIZE 8192
+//#define POLYLIST_SIZE 100000
+#ifdef LOWRAM
+#define POLYLIST_SIZE 1500
+#else
+#define POLYLIST_SIZE 9000
+#endif // LOWRAM
 
 
 struct POLYLIST {
-	POLY list[POLYLIST_SIZE];
 	int count;
+	POLY list[POLYLIST_SIZE];
 };
 
 //just a vert with a 4 float position
@@ -558,13 +578,16 @@ struct VERT {
 };
 
 //HCF PSP
-#define VERTLIST_SIZE (192)
-//#define VERTLIST_SIZE 24576
-
+//#define VERTLIST_SIZE 100000
+#ifdef LOWRAM
+#define VERTLIST_SIZE 3000
+#else
+#define VERTLIST_SIZE 36000
+#endif
 
 struct VERTLIST {
-	VERT list[VERTLIST_SIZE];
 	int count;
+	VERT list[VERTLIST_SIZE];
 };
 
 struct INDEXLIST {
@@ -575,6 +598,14 @@ struct INDEXLIST {
 struct VIEWPORT {
 	int x, y, width, height;
 	void decode(u32 v);
+};
+
+//PSP GU
+struct Vertex
+{
+	//u16 color;
+	float u, v;
+	float x, y, z;
 };
 
 //ok, imagine the plane that cuts diagonally across a cube such that it clips
@@ -595,11 +626,12 @@ public:
 
 	//the entry point for poly clipping
 	template<bool hirez> void clipPoly(POLY* poly, VERT** verts);
+	int clipPolyGU(POLY* poly, VERT** verts, Vertex* guVerts);
 
 	//the output of clipping operations goes into here.
 	//be sure you init it before clipping!
-	TClippedPoly *clippedPolys;
 	int clippedPolyCounter;
+	TClippedPoly * clippedPolys;
 	void reset() { clippedPolyCounter=0; }
 
 private:
@@ -615,7 +647,7 @@ struct GFX3D_State
 	GFX3D_State()
 		: enableTexturing(true)
 		, enableAlphaTest(true)
-		, enableAlphaBlending(true)
+		, enableAlphaBlending(false)
 		, enableAntialiasing(false)
 		, enableEdgeMarking(false)
 		, enableClearImage(false)
@@ -642,17 +674,21 @@ struct GFX3D_State
 	BOOL enableTexturing, enableAlphaTest, enableAlphaBlending, 
 		enableAntialiasing, enableEdgeMarking, enableClearImage, enableFog, enableFogAlphaOnly;
 
-	static const u32 TOON = 0;
-	static const u32 HIGHLIGHT = 1;
-	u32 shading;
-
 	BOOL wbuffer, sortmode;
+
+	bool invalidateToon;
+	
 	u8 alphaTestRef;
 	u32 activeFlushCommand;
 	u32 pendingFlushCommand;
 
 	u32 clearDepth;
 	u32 clearColor;
+
+	static const u32 TOON = 0;
+	static const u32 HIGHLIGHT = 1;
+	u32 shading;
+
 	#include "PACKED.h"
 	struct {
 		u32 fogColor;
@@ -662,7 +698,6 @@ struct GFX3D_State
 	u32 fogOffset;
 	u32 fogShift;
 
-	bool invalidateToon;
 	u16 u16ToonTable[32];
 	u8 shininessTable[128];
 };
@@ -687,6 +722,13 @@ struct GFX3D
 		, frameCtrRaw(0) {
 	}
 
+	//ticks every time flush() is called
+	int frameCtr;
+	size_t vertListCount;
+
+	//you can use this to track how many real frames passed, for comparing to frameCtr;
+	int frameCtrRaw;
+
 	//currently set values
 	GFX3D_State state;
 
@@ -696,16 +738,12 @@ struct GFX3D
 	POLYLIST* polylist;
 	VERTLIST* vertlist;
 	INDEXLIST indexlist;
-
-	//ticks every time flush() is called
-	int frameCtr;
-
-	//you can use this to track how many real frames passed, for comparing to frameCtr;
-	int frameCtrRaw;
 };
 extern GFX3D gfx3d;
 
 //---------------------
+
+extern CACHE_ALIGN float mtxCurrent[4][16];
 
 extern CACHE_ALIGN u32 color_15bit_to_24bit[32768];
 extern CACHE_ALIGN u32 color_15bit_to_24bit_reverse[32768];
@@ -720,12 +758,12 @@ extern CACHE_ALIGN const u8 material_3bit_to_8bit[8];
 
 //these contain the 3d framebuffer converted into the most useful format
 //they are stored here instead of in the renderers in order to consolidate the buffers
-extern CACHE_ALIGN u8 gfx3d_convertedScreen[GFX3D_FRAMEBUFFER_WIDTH*GFX3D_FRAMEBUFFER_HEIGHT*4];
 extern CACHE_ALIGN u8 gfx3d_convertedAlpha[GFX3D_FRAMEBUFFER_WIDTH*GFX3D_FRAMEBUFFER_HEIGHT*2]; //see cpp for explanation of illogical *2
 
 extern BOOL isSwapBuffers;
 
 int _hack_getMatrixStackLevel(int);
+
 
 void gfx3d_glFlush(u32 v);
 // end GE commands

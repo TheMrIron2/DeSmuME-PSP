@@ -22,5 +22,5 @@
 #include "SPU.h"
 #define SNDCORE_SDL 2
 
-extern SoundInterface_struct SNDSDL;
+extern int SNDSDL;
 #endif

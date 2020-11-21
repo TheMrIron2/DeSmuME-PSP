@@ -44,6 +44,21 @@ class EMUFILE;
 
 typedef const u8 TWaitState;
 
+enum VRAMBankID
+{
+	VRAM_BANK_A = 0,
+	VRAM_BANK_B = 1,
+	VRAM_BANK_C = 2,
+	VRAM_BANK_D = 3,
+	VRAM_BANK_E = 4,
+	VRAM_BANK_F = 5,
+	VRAM_BANK_G = 6,
+	VRAM_BANK_H = 7,
+	VRAM_BANK_I = 8,
+
+	VRAM_BANK_COUNT = 9
+};
+
 enum EDMAMode
 {
 	EDMAMode_Immediate = 0,
@@ -122,13 +137,14 @@ struct TGXSTAT : public TRegister_32
 		fifo_empty = true;
 		fifo_low = false;
 	}
+
+	bool fifo_empty, fifo_low;
+
 	u8 tb; //test busy
 	u8 tr; //test result
 	u8 se; //stack error
 	u8 sb; //stack busy
 	u8 gxfifo_irq; //irq configuration
-
-	bool fifo_empty, fifo_low;
 
 	virtual u32 read32();
 	virtual void write32(const u32 val);
@@ -174,16 +190,7 @@ public:
 class DmaController
 {
 public:
-	u8 enable, irq, repeatMode, _startmode;
-	u8 userEnable;
-	u32 wordcount;
-	EDMAMode startmode;
-	EDMABitWidth bitWidth;
-	EDMASourceUpdate sar;
-	EDMADestinationUpdate dar;
-	u32 saddr, daddr;
-	u32 saddr_user, daddr_user;
-	
+
 	//indicates whether the dma needs to be checked for triggering
 	BOOL dmaCheck;
 
@@ -197,9 +204,20 @@ public:
 	//other conditions may be automatically triggered based on scanning conditions
 	BOOL triggered;
 
-	u64 nextEvent;
+	EDMAMode startmode;
+	EDMABitWidth bitWidth;
+	EDMASourceUpdate sar;
+	EDMADestinationUpdate dar;
+
+	u8 enable, irq, repeatMode, _startmode;
+	u8 userEnable;
+	u32 wordcount;
+	u32 saddr, daddr;
+	u32 saddr_user, daddr_user;
 
 	int procnum, chan;
+
+	u64 nextEvent;
 
 	void savestate(EMUFILE *f);
 	bool loadstate(EMUFILE *f);
@@ -322,66 +340,14 @@ struct GCBUS_Controller
 
 struct MMU_struct 
 {
-	//ARM9 mem
-	u8 ARM9_ITCM[0x8000];
-	u8 ARM9_DTCM[0x4000];
+	u8 ARM9_RW_MODE;
+	u8 WRAMCNT;
 
-	//Volatile mem
-	//u8* MAIN_MEM; 
-
-	u8 MAIN_MEM[4*1024*1024]; //expanded from 4MB to 8MB to support debug consoles
-	//u8 MAIN_MEM[8*1024*1024]; //expanded from 8MB to 16MB to support dsi
-	/////u8 MAIN_MEM[16*1024*1024]; //expanded from 8MB to 16MB to support dsi
-	
-	//HCF return to 6
-	/////u8 ARM9_REG[0x1000000]; //this variable is evil and should be removed by correctly emulating all registers.
-
-	//It worked with this Princess Peach, but it failed DK Jungle Climber
-	//////u8 ARM9_REG[0x400000]; //this variable is evil and should be removed by correctly emulating all registers.
-
-	//HCF This memory optimization should be safe
-    //HCF 
-
-    u8 ARM9_REG[0x100000]; //this variable is evil and should be removed by correctly emulating all registers.
-	//u8 ARM9_REG[0x200000]; //this variable is evil and should be removed by correctly emulating all registers.
-	
-	
-	u8 ARM9_BIOS[0x8000];
-	u8 ARM9_VMEM[0x800];
-	
-	#include "PACKED.h"
-	struct {
-		u8 ARM9_LCD[0xA4000];
-		//an extra 128KB for blank memory, directly after arm9_lcd, so that
-		//we can easily map things to the end of arm9_lcd to represent 
-		//an unmapped state
-		u8 blank_memory[0x20000];  
-	};
-	#include "PACKED_END.h"
-
-    u8 ARM9_OAM[0x800];
-
-	u8* ExtPal[2][4];
-	u8* ObjExtPal[2][2];
-	
 	struct TextureInfo {
 		u8* texPalSlot[6];
 		u8* textureSlotAddr[4];
 	} texInfo;
 
-	//ARM7 mem
-	u8 ARM7_BIOS[0x4000];
-	u8 ARM7_ERAM[0x10000]; //64KB of exclusive WRAM
-	u8 ARM7_REG[0x10000];
-	u8 ARM7_WIRAM[0x10000]; //WIFI ram
-
-	// VRAM mapping
-	u8 VRAM_MAP[4][32];
-	u32 LCD_VRAM_ADDR[10];
-	u8 LCDCenable[10];
-
-	//32KB of shared WRAM - can be switched between ARM7 & ARM9 in two blocks
-	u8 SWIRAM[0x8000];
 
 	//Unused ram
 	u8 UNUSED_RAM[4];
@@ -394,7 +360,7 @@ struct MMU_struct
 	static u8 * MMU_MEM[2][256];
 	static u32 MMU_MASK[2][256];
 
-	u8 ARM9_RW_MODE;
+	
 
 	u32 DTCMRegion;
 	u32 ITCMRegion;
@@ -431,7 +397,7 @@ struct MMU_struct
 	u16 AUX_SPI_CNT;
 	//u16 AUX_SPI_CMD; //zero 20-aug-2013 - this seems pointless
 
-	u8 WRAMCNT;
+	
 
 	u64 gfx3dCycles;
 
@@ -442,6 +408,51 @@ struct MMU_struct
 	fw_memory_chip fw;
 
 	GCBUS_Controller dscard[2];
+
+	// VRAM mapping
+	u8 LCDCenable[10];
+
+	u32 LCD_VRAM_ADDR[10];
+	
+	u8 VRAM_MAP[4][32];
+
+	u8* ExtPal[2][4];
+	u8* ObjExtPal[2][2];
+
+	//u8* ARM9_OAM;
+	u8 ARM9_OAM[0x800];
+
+	//ARM9 mem
+	u8 ARM9_DTCM[0x4000];
+	u8 ARM9_ITCM[0x8000];
+
+	//32KB of shared WRAM - can be switched between ARM7 & ARM9 in two blocks
+	u8 SWIRAM[0x8000];
+
+	u8 ARM9_BIOS[0x8000];
+	u8 ARM9_VMEM[0x800];
+	//u8* ARM9_VMEM;
+
+	//ARM7 mem
+	u8 ARM7_BIOS[0x4000];
+	u8 ARM7_ERAM[0x10000]; //64KB of exclusive WRAM
+	u8 ARM7_REG[0x10000];
+	u8 ARM7_WIRAM[0x10000]; //WIFI ram
+
+#include "PACKED.h"
+	struct {
+		u8 ARM9_LCD[0xA4000];
+		//an extra 128KB for blank memory, directly after arm9_lcd, so that
+		//we can easily map things to the end of arm9_lcd to represent 
+		//an unmapped state
+		u8 blank_memory[0x20000];
+	};
+#include "PACKED_END.h"
+
+	u8 ARM9_REG[0x100000]; //this variable is evil and should be removed by correctly emulating all registers.
+	//u8 ARM9_REG[0x200000]; //this variable is evil and should be removed by correctly emulating all registers.
+
+	u8 MAIN_MEM[4 * 1024 * 1024]; //expanded from 4MB to 8MB to support debug consoles
 };
 
 
@@ -538,6 +549,7 @@ extern const armcpu_memory_iface arm9_base_memory_iface;
 extern const armcpu_memory_iface arm7_base_memory_iface;
 extern const armcpu_memory_iface arm9_direct_memory_iface;
 
+/*
 #define VRAM_BANKS 9
 #define VRAM_BANK_A 0
 #define VRAM_BANK_B 1
@@ -547,7 +559,7 @@ extern const armcpu_memory_iface arm9_direct_memory_iface;
 #define VRAM_BANK_F 5
 #define VRAM_BANK_G 6
 #define VRAM_BANK_H 7
-#define VRAM_BANK_I 8
+#define VRAM_BANK_I 8*/
 
 #define VRAM_PAGE_ABG 0
 #define VRAM_PAGE_BBG 128
@@ -564,10 +576,10 @@ struct VramConfiguration {
 	struct BankInfo {
 		Purpose purpose;
 		int ofs;
-	} banks[VRAM_BANKS];
+	} banks[VRAM_BANK_COUNT];
 	
 	inline void clear() {
-		for(int i=0;i<VRAM_BANKS;i++) {
+		for(int i=0;i< VRAM_BANK_COUNT;i++) {
 			banks[i].ofs = 0;
 			banks[i].purpose = OFF;
 		}

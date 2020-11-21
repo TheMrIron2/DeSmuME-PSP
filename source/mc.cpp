@@ -67,9 +67,6 @@
 #define MCLOG(...)
 #endif
 
-//HCF
-void vdResetEmulator();
-
 static const char* DESMUME_BACKUP_FOOTER_TXT = "|<--Snip above here to create a raw sav by excluding this DeSmuME savedata footer:";
 static const char* kDesmumeSaveCookie = "|-DESMUME SAVE-|";
 
@@ -998,9 +995,9 @@ void BackupDevice::ensureReal(u32 addr, u8 val, int inReset, EMUFILE *fpOut)
 	//IDEALLY, no assumptions about the file pointer can be made.
 	//but someone (actually, not really) so very carefully profiled the save IO code and discovered that not fseeking for every byte read/write was a great optimization.
 	//so, now all this code is depending/assuming on the FP being kept in a precise position, and I dont think its smart to change the main user of this assumption to paper over this bug by making it fseek before read/write, while leaving other unknown assuming clients intact
-	if(inReset)
+	/*if(inReset)
 		vdResetEmulator();
-	else
+	else*/
 		fpMC->fseek(addr-1, SEEK_SET);
 #endif
 

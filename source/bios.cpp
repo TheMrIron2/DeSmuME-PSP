@@ -990,9 +990,46 @@ TEMPLATE static u32 Diff16bitUnFilter()
 	return 1;
 }
 
+static unsigned int fsqrt (unsigned long val) {
+	  unsigned int temp, g=0;
+
+	  if (val >= 0x40000000) {
+	    g = 0x8000; 
+	    val -= 0x40000000;
+	  }
+
+	#define INNER_ISQRT(s)                        \
+	  temp = (g << (s)) + (1 << ((s) * 2 - 2));   \
+	  if (val >= temp) {                          \
+	    g += 1 << ((s)-1);                        \
+	    val -= temp;                              \
+	  }
+
+	  INNER_ISQRT (15)
+	  INNER_ISQRT (14)
+	  INNER_ISQRT (13)
+	  INNER_ISQRT (12)
+	  INNER_ISQRT (11)
+	  INNER_ISQRT (10)
+	  INNER_ISQRT ( 9)
+	  INNER_ISQRT ( 8)
+	  INNER_ISQRT ( 7)
+	  INNER_ISQRT ( 6)
+	  INNER_ISQRT ( 5)
+	  INNER_ISQRT ( 4)
+	  INNER_ISQRT ( 3)
+	  INNER_ISQRT ( 2)
+
+	#undef INNER_ISQRT
+
+	  temp = g+g+1;
+	  if (val >= temp) g++;
+	  return g;
+}
+
 TEMPLATE static u32 bios_sqrt()
 {
-     cpu->R[0] = (u32)sqrt((double)(cpu->R[0]));
+     cpu->R[0] = fsqrt(cpu->R[0]);//(u32)sqrt((double)(cpu->R[0]));
      return 1;
 }
 

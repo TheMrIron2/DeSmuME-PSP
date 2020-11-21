@@ -1,6 +1,7 @@
 /*
 	Copyright (C) 2006 yopyop
 	Copyright (C) 2006-2007 shash
+	Copyright (C) 2006-2007 shash
 	Copyright (C) 2008-2015 DeSmuME team
 
 	This file is free software: you can redistribute it and/or modify
@@ -3082,7 +3083,7 @@ TEMPLATE static u32 FASTCALL  OP_MSR_SPSR_IMM_VAL(const u32 i)
 //   Branch
 //-----------------------------------------------------------------------------
 
-TEMPLATE static u32 FASTCALL  OP_BX(const u32 i)
+TEMPLATE __attribute__((fastcall)) static u32 FASTCALL  OP_BX(const u32 i)
 {
 	u32 tmp = cpu->R[REG_POS(i, 0)];
 
@@ -4274,32 +4275,12 @@ extern int debuga;
 
 TEMPLATE static u32 FASTCALL  OP_STR_P_IMM_OFF_POSTIND(const u32 i)
 {
-	if(debuga)
-		vdDejaLog(" ENTROOOPPP  ");
 
 	u32 adr = cpu->R[REG_POS(i,16)];
-	
-	if(debuga)
-		vdDejaLog(" WRITTTE32  ");
 
-	if(debuga)
-	{
-		char achJJJ[64];
-		memset(achJJJ, 0x00, 64);
-		sprintf(achJJJ," DATA %d  adr %d  ", cpu->mem_if->data, adr);
-		vdDejaLog(achJJJ);
-	}
-
-	//PETA AQUI!!!
 	WRITE32(cpu->mem_if->data, adr, cpu->R[REG_POS(i,12)]);
-	
-	if(debuga)
-		vdDejaLog(" CPPUUUUU  ");
 
 	cpu->R[REG_POS(i,16)] = adr + IMM_OFF_12;
-	
-	if(debuga)
-		vdDejaLog(" RETURNNNN  ");
 
 	return MMU_aluMemAccessCycles<PROCNUM,32,MMU_AD_WRITE>(2,adr);
 }

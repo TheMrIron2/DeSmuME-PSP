@@ -1,19 +1,21 @@
-/*
+/*  
 	Copyright (C) 2006-2007 shash
-	Copyright (C) 2007-2012 DeSmuME team
 
-	This file is free software: you can redistribute it and/or modify
-	it under the terms of the GNU General Public License as published by
-	the Free Software Foundation, either version 2 of the License, or
-	(at your option) any later version.
+    This file is part of DeSmuME
 
-	This file is distributed in the hope that it will be useful,
-	but WITHOUT ANY WARRANTY; without even the implied warranty of
-	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-	GNU General Public License for more details.
+    DeSmuME is free software; you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation; either version 2 of the License, or
+    (at your option) any later version.
 
-	You should have received a copy of the GNU General Public License
-	along with the this software.  If not, see <http://www.gnu.org/licenses/>.
+    DeSmuME is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with DeSmuME; if not, write to the Free Software
+    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 */
 
 #include <stdio.h>
@@ -23,43 +25,38 @@
 #include <assert.h>
 #include "matrix.h"
 #include "MMU.h"
-
-void _NOSSE_MatrixMultVec4x4 (const float *matrix, float *vecPtr)
+#include "pspmath.h"
+#include "PSP/pspvfpu.h" 
+ 
+void _NOSSE_MatrixMultVec4x4(const float* matrix, float* vecPtr)
 {
+/*
 	float x = vecPtr[0];
 	float y = vecPtr[1];
 	float z = vecPtr[2];
 	float w = vecPtr[3];
-
-	vecPtr[0] = x * matrix[0] + y * matrix[4] + z * matrix[ 8] + w * matrix[12];
-	vecPtr[1] = x * matrix[1] + y * matrix[5] + z * matrix[ 9] + w * matrix[13];
+	
+	vecPtr[0] = x * matrix[0] + y * matrix[4] + z * matrix[8] + w * matrix[12];
+	vecPtr[1] = x * matrix[1] + y * matrix[5] + z * matrix[9] + w * matrix[13];
 	vecPtr[2] = x * matrix[2] + y * matrix[6] + z * matrix[10] + w * matrix[14];
 	vecPtr[3] = x * matrix[3] + y * matrix[7] + z * matrix[11] + w * matrix[15];
+
+	*/
+	
+	    __asm__ volatile (
+		"lv.q C100,  0 + %2\n"
+		"lv.q C110, 16 + %2\n"
+		"lv.q C120, 32 + %2\n"
+		"lv.q C130, 48 + %2\n"
+		"lv.q C200,  0 + %1\n"
+		"vtfm4.q C000, E100, C200\n"
+		"sv.q C000, %0\n"
+		: "=m"(*vecPtr) : "m"(*vecPtr), "m"(*matrix)
+		);
+		
+
 }
 
-void MatrixMultVec4x4 (const s32 *matrix, s32 *vecPtr)
-{
-	const s32 x = vecPtr[0];
-	const s32 y = vecPtr[1];
-	const s32 z = vecPtr[2];
-	const s32 w = vecPtr[3];
-
-	vecPtr[0] = fx32_shiftdown(fx32_mul(x,matrix[0]) + fx32_mul(y,matrix[4]) + fx32_mul(z,matrix [8]) + fx32_mul(w,matrix[12]));
-	vecPtr[1] = fx32_shiftdown(fx32_mul(x,matrix[1]) + fx32_mul(y,matrix[5]) + fx32_mul(z,matrix[ 9]) + fx32_mul(w,matrix[13]));
-	vecPtr[2] = fx32_shiftdown(fx32_mul(x,matrix[2]) + fx32_mul(y,matrix[6]) + fx32_mul(z,matrix[10]) + fx32_mul(w,matrix[14]));
-	vecPtr[3] = fx32_shiftdown(fx32_mul(x,matrix[3]) + fx32_mul(y,matrix[7]) + fx32_mul(z,matrix[11]) + fx32_mul(w,matrix[15]));
-}
-
-void MatrixMultVec3x3_fixed(const s32 *matrix, s32 *vecPtr)
-{
-	const s32 x = vecPtr[0];
-	const s32 y = vecPtr[1];
-	const s32 z = vecPtr[2];
-
-	vecPtr[0] = fx32_shiftdown(fx32_mul(x,matrix[0]) + fx32_mul(y,matrix[4]) + fx32_mul(z,matrix[8]));
-	vecPtr[1] = fx32_shiftdown(fx32_mul(x,matrix[1]) + fx32_mul(y,matrix[5]) + fx32_mul(z,matrix[9]));
-	vecPtr[2] = fx32_shiftdown(fx32_mul(x,matrix[2]) + fx32_mul(y,matrix[6]) + fx32_mul(z,matrix[10]));
-}
 
 //-------------------------
 //switched SSE functions: implementations for no SSE
@@ -72,102 +69,180 @@ void MatrixMultVec4x4 (const float *matrix, float *vecPtr)
 
 void MatrixMultVec3x3 (const float *matrix, float *vecPtr)
 {
-	float x = vecPtr[0];
+	/*float x = vecPtr[0];
 	float y = vecPtr[1];
 	float z = vecPtr[2];
 
 	vecPtr[0] = x * matrix[0] + y * matrix[4] + z * matrix[ 8];
 	vecPtr[1] = x * matrix[1] + y * matrix[5] + z * matrix[ 9];
-	vecPtr[2] = x * matrix[2] + y * matrix[6] + z * matrix[10];
+	vecPtr[2] = x * matrix[2] + y * matrix[6] + z * matrix[10];*/
+
+	__asm__ volatile (
+		"lv.q C100,  0 + %2\n"
+		"lv.q C110, 16 + %2\n"
+		"lv.q C120, 32 + %2\n"
+		"lv.q C200,  0 + %1\n"
+		"vtfm4.q C000, E100, C200\n"
+		"sv.q C000, %0\n"
+		: "=m"(*vecPtr) : "m"(*vecPtr), "m"(*matrix)
+		);
+
 }
 
 void MatrixMultiply (float *matrix, const float *rightMatrix)
 {
-	float tmpMatrix[16];
+	__asm__
+		(
+			"ulv.q C000,  0 + %1\n"
+			"ulv.q C010, 16 + %1\n"
+			"ulv.q C020, 32 + %1\n"
+			"ulv.q C030, 48 + %1\n"
 
-	tmpMatrix[0]  = (matrix[0]*rightMatrix[0])+(matrix[4]*rightMatrix[1])+(matrix[8]*rightMatrix[2])+(matrix[12]*rightMatrix[3]);
-	tmpMatrix[1]  = (matrix[1]*rightMatrix[0])+(matrix[5]*rightMatrix[1])+(matrix[9]*rightMatrix[2])+(matrix[13]*rightMatrix[3]);
-	tmpMatrix[2]  = (matrix[2]*rightMatrix[0])+(matrix[6]*rightMatrix[1])+(matrix[10]*rightMatrix[2])+(matrix[14]*rightMatrix[3]);
-	tmpMatrix[3]  = (matrix[3]*rightMatrix[0])+(matrix[7]*rightMatrix[1])+(matrix[11]*rightMatrix[2])+(matrix[15]*rightMatrix[3]);
+			"ulv.q C100,  0 + %2\n"
+			"ulv.q C110, 16 + %2\n"
+			"ulv.q C120, 32 + %2\n"
+			"ulv.q C130, 48 + %2\n"
 
-	tmpMatrix[4]  = (matrix[0]*rightMatrix[4])+(matrix[4]*rightMatrix[5])+(matrix[8]*rightMatrix[6])+(matrix[12]*rightMatrix[7]);
-	tmpMatrix[5]  = (matrix[1]*rightMatrix[4])+(matrix[5]*rightMatrix[5])+(matrix[9]*rightMatrix[6])+(matrix[13]*rightMatrix[7]);
-	tmpMatrix[6]  = (matrix[2]*rightMatrix[4])+(matrix[6]*rightMatrix[5])+(matrix[10]*rightMatrix[6])+(matrix[14]*rightMatrix[7]);
-	tmpMatrix[7]  = (matrix[3]*rightMatrix[4])+(matrix[7]*rightMatrix[5])+(matrix[11]*rightMatrix[6])+(matrix[15]*rightMatrix[7]);
+			"vmmul.q M200, M000, M100\n"
 
-	tmpMatrix[8]  = (matrix[0]*rightMatrix[8])+(matrix[4]*rightMatrix[9])+(matrix[8]*rightMatrix[10])+(matrix[12]*rightMatrix[11]);
-	tmpMatrix[9]  = (matrix[1]*rightMatrix[8])+(matrix[5]*rightMatrix[9])+(matrix[9]*rightMatrix[10])+(matrix[13]*rightMatrix[11]);
-	tmpMatrix[10] = (matrix[2]*rightMatrix[8])+(matrix[6]*rightMatrix[9])+(matrix[10]*rightMatrix[10])+(matrix[14]*rightMatrix[11]);
-	tmpMatrix[11] = (matrix[3]*rightMatrix[8])+(matrix[7]*rightMatrix[9])+(matrix[11]*rightMatrix[10])+(matrix[15]*rightMatrix[11]);
+			"usv.q C200,  0 + %0\n"
+			"usv.q C210, 16 + %0\n"
+			"usv.q C220, 32 + %0\n"
+			"usv.q C230, 48 + %0\n"
+			: "=m"(*matrix) : "m"(*matrix), "m"(*rightMatrix) : "memory");
+}
+//Note to use it: needs (1/value) to work
+void MatrixDivide4X4(float* matrix, float div)
+{
+	__asm__ volatile(
+		".set			push\n"					// save assember option
+		".set			noreorder\n"			// suppress reordering
+		"mfc1			$8,   %1\n"				
+		"mtv			$8,   s200\n"			
+		"lv.q			c100,  0 + %0\n"		
+		"lv.q			c110, 16 + %0\n"		
+		"lv.q			c120, 32 + %0\n"		
+		"lv.q			c130, 48 + %0\n"		
+		"vmscl.q		e000, e100, s200\n"		
+		"sv.q			c000,  0 + %0\n"		
+		"sv.q			c010, 16 + %0\n"		
+		"sv.q			c020, 32 + %0\n"		
+		"sv.q			c030, 48 + %0\n"		
+		".set			pop\n"					// restore assember option
+		: "+m"(*matrix)
+		: "f"(div)
+		);
+}
 
-	tmpMatrix[12] = (matrix[0]*rightMatrix[12])+(matrix[4]*rightMatrix[13])+(matrix[8]*rightMatrix[14])+(matrix[12]*rightMatrix[15]);
-	tmpMatrix[13] = (matrix[1]*rightMatrix[12])+(matrix[5]*rightMatrix[13])+(matrix[9]*rightMatrix[14])+(matrix[13]*rightMatrix[15]);
-	tmpMatrix[14] = (matrix[2]*rightMatrix[12])+(matrix[6]*rightMatrix[13])+(matrix[10]*rightMatrix[14])+(matrix[14]*rightMatrix[15]);
-	tmpMatrix[15] = (matrix[3]*rightMatrix[12])+(matrix[7]*rightMatrix[13])+(matrix[11]*rightMatrix[14])+(matrix[15]*rightMatrix[15]);
-
-	memcpy (matrix, tmpMatrix, sizeof(float)*16);
+void MatrixDivide3X3(float* matrix, float div)
+{
+	__asm__ volatile(
+		".set			push\n"					// save assember option
+		".set			noreorder\n"			// suppress reordering
+		"mfc1			$8,   %1\n"				
+		"mtv			$8,   s200\n"			
+		"lv.q			c100,  0 + %0\n"		
+		"lv.q			c110, 16 + %0\n"		
+		"lv.q			c120, 32 + %0\n"		
+		"lv.q			c130, 48 + %0\n"		
+		"vmscl.t		e000, e100, s200\n"		
+		"sv.q			c000,  0 + %0\n"		
+		"sv.q			c010, 16 + %0\n"		
+		"sv.q			c020, 32 + %0\n"		
+		"sv.q			c030, 48 + %0\n"		
+		".set			pop\n"					// restore assember option
+		: "+m"(*matrix)
+		: "f"(div)
+		);
 }
 
 void MatrixTranslate	(float *matrix, const float *ptr)
 {
-	matrix[12] += (matrix[0]*ptr[0])+(matrix[4]*ptr[1])+(matrix[ 8]*ptr[2]);
-	matrix[13] += (matrix[1]*ptr[0])+(matrix[5]*ptr[1])+(matrix[ 9]*ptr[2]);
-	matrix[14] += (matrix[2]*ptr[0])+(matrix[6]*ptr[1])+(matrix[10]*ptr[2]);
-	matrix[15] += (matrix[3]*ptr[0])+(matrix[7]*ptr[1])+(matrix[11]*ptr[2]);
+	__asm__ volatile (
+		"ulv.q C030, %1\n"
+
+		"ulv.q C100,  0 + %0\n"
+		"ulv.q C110, 16 + %0\n"
+		"ulv.q C120, 32 + %0\n"
+		"ulv.q C130, 48 + %0\n"
+
+		"vscl.q	C000, C100, S030\n"
+		"vscl.q	C010, C110, S031\n"
+		"vscl.q	C020, C120, S032\n"
+
+		"vadd.q	C130, C130, C000\n"
+		"vadd.q	C130, C130, C010\n"
+		"vadd.q	C130, C130, C020\n"
+
+		"usv.q C130, 48 + %0\n"	// only C130 has changed
+		: "+m"(*matrix) : "m"(*ptr));
 }
+
+
 
 void MatrixScale (float *matrix, const float *ptr)
 {
-	matrix[0]  *= ptr[0];
-	matrix[1]  *= ptr[0];
-	matrix[2]  *= ptr[0];
-	matrix[3]  *= ptr[0];
+	__asm__ volatile (
+		"ulv.q C100,  0 + %0\n"
+		"ulv.q C110, 16 + %0\n"
+		"ulv.q C120, 32 + %0\n"
+		"ulv.q C130, 48 + %0\n"
 
-	matrix[4]  *= ptr[1];
-	matrix[5]  *= ptr[1];
-	matrix[6]  *= ptr[1];
-	matrix[7]  *= ptr[1];
+		"ulv.q C000, %1\n"
 
-	matrix[8] *= ptr[2];
-	matrix[9] *= ptr[2];
-	matrix[10] *= ptr[2];
-	matrix[11] *= ptr[2];
+		"vscl.t C100, C100, S000\n"
+		"vscl.t C110, C110, S001\n"
+		"vscl.t C120, C120, S002\n"
+
+		"usv.q C100,  0 + %0\n"
+		"usv.q C110, 16 + %0\n"
+		"usv.q C120, 32 + %0\n"
+		"usv.q C130, 48 + %0\n"
+		: "+m"(*matrix) : "m"(*ptr));
 }
 
 #endif //switched c/asm functions
 //-----------------------------------------
 
-void MatrixInit  (s32 *matrix)
-{
-	memset (matrix, 0, sizeof(s32)*16);
-	matrix[0] = matrix[5] = matrix[10] = matrix[15] = 1<<12;
-}
-
 void MatrixInit  (float *matrix)
 {
-	memset (matrix, 0, sizeof(s32)*16);
+	memset (matrix, 0, sizeof(float)*16);
 	matrix[0] = matrix[5] = matrix[10] = matrix[15] = 1.f;
 }
 
-void	MatrixIdentity			(s32 *matrix)
+void MatrixTranspose(float *matrix)
 {
-	matrix[1] = matrix[2] = matrix[3] = matrix[4] = 0;
-	matrix[6] = matrix[7] = matrix[8] = matrix[9] = 0;
-	matrix[11] = matrix[12] = matrix[13] = matrix[14] = 0;
-	matrix[0] = matrix[5] = matrix[10] = matrix[15] = 1<<12;
+	float temp;
+#define swap(A,B) temp = matrix[A];matrix[A] = matrix[B]; matrix[B] = temp;
+	swap(1,4);
+	swap(2,8);
+	swap(3,0xC);
+	swap(6,9);
+	swap(7,0xD);
+	swap(0xB,0xE);
+#undef swap
 }
 
-s32 MatrixGetMultipliedIndex (int index, s32 *matrix, s32 *rightMatrix)
+void MatrixIdentity	(float *matrix)
+{
+	__asm__ volatile (
+		"vmidt.q	M000\n"
+		"sv.q		C000, 0  + %0\n"
+		"sv.q		C010, 16 + %0\n"
+		"sv.q		C020, 32 + %0\n"
+		"sv.q		C030, 48 + %0\n"
+		:"=m"(*matrix));
+}
+
+float MatrixGetMultipliedIndex (int index, float *matrix, float *rightMatrix)
 {
 	int iMod = index%4, iDiv = (index>>2)<<2;
 
-	s64 temp = ((s64)matrix[iMod  ]*rightMatrix[iDiv  ])+((s64)matrix[iMod+ 4]*rightMatrix[iDiv+1])+
-			((s64)matrix[iMod+8]*rightMatrix[iDiv+2])+((s64)matrix[iMod+12]*rightMatrix[iDiv+3]);
-
-	return (s32)(temp>>12);
+	return	(matrix[iMod  ]*rightMatrix[iDiv  ])+(matrix[iMod+ 4]*rightMatrix[iDiv+1])+
+			(matrix[iMod+8]*rightMatrix[iDiv+2])+(matrix[iMod+12]*rightMatrix[iDiv+3]);
 }
 
-void MatrixSet (s32 *matrix, int x, int y, s32 value)
+void MatrixSet (float *matrix, int x, int y, float value)	// TODO
 {
 	matrix [x+(y<<2)] = value;
 }
@@ -193,14 +268,9 @@ void MatrixCopy (float* matrixDST, const float* matrixSRC)
 
 }
 
-void MatrixCopy (s32* matrixDST, const s32* matrixSRC)
+int MatrixCompare (const float* matrixDST, const float* matrixSRC)
 {
-	memcpy(matrixDST,matrixSRC,sizeof(s32)*16);
-}
-
-int MatrixCompare (const s32* matrixDST, const s32* matrixSRC)
-{
-	return memcmp((void*)matrixDST, matrixSRC, sizeof(s32)*16);
+	return memcmp((void*)matrixDST, matrixSRC, sizeof(float)*16);
 }
 
 void MatrixStackInit(MatrixStack *stack)
@@ -221,7 +291,7 @@ void MatrixStackSetMaxSize (MatrixStack *stack, int size)
 	if (stack->matrix != NULL) {
 		free (stack->matrix);
 	}
-	stack->matrix = new s32[stack->size*16*sizeof(s32)];
+	stack->matrix = (float*) malloc (stack->size*16*sizeof(float));
 
 	for (i = 0; i < stack->size; i++)
 	{
@@ -244,14 +314,10 @@ static void MatrixStackSetStackPosition (MatrixStack *stack, int pos)
 
 	if((stack->position < 0) || (stack->position > stack->size))
 		MMU_new.gxstat.se = 1;
-
-	//once upon a time, we tried clamping to the size.
-	//this utterly broke sims 2 apartment pets.
-	//changing to wrap around made it work perfectly
-	stack->position = ((u32)stack->position) & stack->size;
+	stack->position &= stack->size;
 }
 
-void MatrixStackPushMatrix (MatrixStack *stack, const s32 *ptr)
+void MatrixStackPushMatrix (MatrixStack *stack, const float *ptr)
 {
 	//printf("Push %i pos %i\n", stack->type, stack->position);
 	if ((stack->type == 0) || (stack->type == 3))
@@ -261,7 +327,7 @@ void MatrixStackPushMatrix (MatrixStack *stack, const s32 *ptr)
 	MatrixStackSetStackPosition (stack, 1);
 }
 
-void MatrixStackPopMatrix (s32 *mtxCurr, MatrixStack *stack, int size)
+void MatrixStackPopMatrix (float *mtxCurr, MatrixStack *stack, int size)
 {
 	//printf("Pop %i pos %i (change %d)\n", stack->type, stack->position, -size);
 	MatrixStackSetStackPosition(stack, -size);
@@ -271,18 +337,18 @@ void MatrixStackPopMatrix (s32 *mtxCurr, MatrixStack *stack, int size)
 		MatrixCopy (mtxCurr, &stack->matrix[stack->position*16]);
 }
 
-s32 * MatrixStackGetPos (MatrixStack *stack, int pos)
+float * MatrixStackGetPos (MatrixStack *stack, int pos)
 {
 	//assert(pos<31);
 	return &stack->matrix[pos*16];
 }
 
-s32 * MatrixStackGet (MatrixStack *stack)
+float * MatrixStackGet (MatrixStack *stack)
 {
 	return &stack->matrix[stack->position*16];
 }
 
-void MatrixStackLoadMatrix (MatrixStack *stack, int pos, const s32 *ptr)
+void MatrixStackLoadMatrix (MatrixStack *stack, int pos, const float *ptr)
 {
 	//assert(pos<31);
 	MatrixCopy (&stack->matrix[pos*16], ptr);
@@ -377,58 +443,4 @@ void Vector4Copy(float *dst, const float *src)
 	dst[1] = src[1];
 	dst[2] = src[2];
 	dst[3] = src[3];
-}
-
-
-void MatrixMultiply (s32 *matrix, const s32 *rightMatrix)
-{
-	s32 tmpMatrix[16];
-
-	tmpMatrix[0]  = fx32_shiftdown(fx32_mul(matrix[0],rightMatrix[0])+fx32_mul(matrix[4],rightMatrix[1])+fx32_mul(matrix[8],rightMatrix[2])+fx32_mul(matrix[12],rightMatrix[3]));
-	tmpMatrix[1]  = fx32_shiftdown(fx32_mul(matrix[1],rightMatrix[0])+fx32_mul(matrix[5],rightMatrix[1])+fx32_mul(matrix[9],rightMatrix[2])+fx32_mul(matrix[13],rightMatrix[3]));
-	tmpMatrix[2]  = fx32_shiftdown(fx32_mul(matrix[2],rightMatrix[0])+fx32_mul(matrix[6],rightMatrix[1])+fx32_mul(matrix[10],rightMatrix[2])+fx32_mul(matrix[14],rightMatrix[3]));
-	tmpMatrix[3]  = fx32_shiftdown(fx32_mul(matrix[3],rightMatrix[0])+fx32_mul(matrix[7],rightMatrix[1])+fx32_mul(matrix[11],rightMatrix[2])+fx32_mul(matrix[15],rightMatrix[3]));
-
-	tmpMatrix[4]  = fx32_shiftdown(fx32_mul(matrix[0],rightMatrix[4])+fx32_mul(matrix[4],rightMatrix[5])+fx32_mul(matrix[8],rightMatrix[6])+fx32_mul(matrix[12],rightMatrix[7]));
-	tmpMatrix[5]  = fx32_shiftdown(fx32_mul(matrix[1],rightMatrix[4])+fx32_mul(matrix[5],rightMatrix[5])+fx32_mul(matrix[9],rightMatrix[6])+fx32_mul(matrix[13],rightMatrix[7]));
-	tmpMatrix[6]  = fx32_shiftdown(fx32_mul(matrix[2],rightMatrix[4])+fx32_mul(matrix[6],rightMatrix[5])+fx32_mul(matrix[10],rightMatrix[6])+fx32_mul(matrix[14],rightMatrix[7]));
-	tmpMatrix[7]  = fx32_shiftdown(fx32_mul(matrix[3],rightMatrix[4])+fx32_mul(matrix[7],rightMatrix[5])+fx32_mul(matrix[11],rightMatrix[6])+fx32_mul(matrix[15],rightMatrix[7]));
-
-	tmpMatrix[8]  = fx32_shiftdown(fx32_mul(matrix[0],rightMatrix[8])+fx32_mul(matrix[4],rightMatrix[9])+fx32_mul(matrix[8],rightMatrix[10])+fx32_mul(matrix[12],rightMatrix[11]));
-	tmpMatrix[9]  = fx32_shiftdown(fx32_mul(matrix[1],rightMatrix[8])+fx32_mul(matrix[5],rightMatrix[9])+fx32_mul(matrix[9],rightMatrix[10])+fx32_mul(matrix[13],rightMatrix[11]));
-	tmpMatrix[10] = fx32_shiftdown(fx32_mul(matrix[2],rightMatrix[8])+fx32_mul(matrix[6],rightMatrix[9])+fx32_mul(matrix[10],rightMatrix[10])+fx32_mul(matrix[14],rightMatrix[11]));
-	tmpMatrix[11] = fx32_shiftdown(fx32_mul(matrix[3],rightMatrix[8])+fx32_mul(matrix[7],rightMatrix[9])+fx32_mul(matrix[11],rightMatrix[10])+fx32_mul(matrix[15],rightMatrix[11]));
-
-	tmpMatrix[12] = fx32_shiftdown(fx32_mul(matrix[0],rightMatrix[12])+fx32_mul(matrix[4],rightMatrix[13])+fx32_mul(matrix[8],rightMatrix[14])+fx32_mul(matrix[12],rightMatrix[15]));
-	tmpMatrix[13] = fx32_shiftdown(fx32_mul(matrix[1],rightMatrix[12])+fx32_mul(matrix[5],rightMatrix[13])+fx32_mul(matrix[9],rightMatrix[14])+fx32_mul(matrix[13],rightMatrix[15]));
-	tmpMatrix[14] = fx32_shiftdown(fx32_mul(matrix[2],rightMatrix[12])+fx32_mul(matrix[6],rightMatrix[13])+fx32_mul(matrix[10],rightMatrix[14])+fx32_mul(matrix[14],rightMatrix[15]));
-	tmpMatrix[15] = fx32_shiftdown(fx32_mul(matrix[3],rightMatrix[12])+fx32_mul(matrix[7],rightMatrix[13])+fx32_mul(matrix[11],rightMatrix[14])+fx32_mul(matrix[15],rightMatrix[15]));
-
-	memcpy(matrix,tmpMatrix,sizeof(s32)*16);
-}
-
-void MatrixScale(s32 *matrix, const s32 *ptr)
-{
-	//zero 21-sep-2010 - verified unrolling seems faster on my cpu
-	MACRODO_N(12,
-		matrix[X] = fx32_shiftdown(fx32_mul(matrix[X],ptr[X>>2]))
-		);
-}
-
-void MatrixTranslate(s32 *matrix, const s32 *ptr)
-{
-	MACRODO_N(4,
-	{
-		s64 temp = fx32_shiftup(matrix[X+12]);
-		temp += fx32_mul(matrix[X+0],ptr[0]);
-		temp += fx32_mul(matrix[X+4],ptr[1]);
-		temp += fx32_mul(matrix[X+8],ptr[2]);
-		matrix[X+12] = fx32_shiftdown(temp);
-	});
-}
-
-void MatrixMultVec4x4_M2(const s32 *matrix, s32 *vecPtr)
-{
-	MatrixMultVec4x4(matrix+16,vecPtr);
-	MatrixMultVec4x4(matrix,vecPtr);
 }

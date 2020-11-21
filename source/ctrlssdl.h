@@ -27,14 +27,6 @@
 #include <stdlib.h>
 //#include <unistd.h>
 
-#include <pspctrl.h>
-
-// TODO: Cull SDL
-#include <SDL/SDL.h>
-#include <SDL/SDL_image.h>
-#include <SDL/SDL_ttf.h>
-// TODO: Cull SDL
-
 #include "MMU.h"
 
 #include "types.h"
@@ -70,11 +62,6 @@
 #define BOTON_RTRIGGER 13
 #define BOTON_LTHUMBSTICK 14
 #define BOTON_RTHUMBSTICK 15
-extern SDL_Joystick *GAMEPAD; //Gamepad
-extern short ashBotones[NUM_BOTONES];
-
-extern TTF_Font *font;
-extern SDL_Surface *SDLscreen;
 
 //HCF FRAMESKIP
 #define FRAMESKIP_FIXED      0
@@ -107,7 +94,7 @@ extern int nFrameskip;  //This will store the frameskip configured by the user
 				        //On the other hand, "frameskip" stores the actual frameskip
 
 extern int iUsarDynarec; //iGlobalSpeed;
-extern int emula3D;
+//extern int emula3D;
 
 extern BOOL bBlitAll;
 extern int iLimitFramerate;
@@ -158,10 +145,14 @@ extern u16 nbr_joy;
 #ifndef GTK_UI
 struct mouse_status
 {
-  signed long x;
-  signed long y;
-  BOOL click;
-  BOOL down;
+	BOOL click;
+	BOOL down;
+
+	u8 x;
+	u8 y;
+/*
+	u16 psp_x;
+	u16 psp_y;*/
 };
 
 extern mouse_status mouse;
@@ -195,11 +186,11 @@ u16 lookup_key (u16 keyval);
 u16 lookup_joy_key (u16 keyval);
 void
 //process_ctrls_event( SDL_Event& event,
-  process_ctrls_event(u16 &pad);
+ process_ctrls_event(u16 &keypad);
 
 void
 process_joystick_events( u16 *keypad);
 
-void DrawCursor(short * screen, unsigned int x, unsigned int y);
+void DrawCursor(unsigned int x, unsigned int y);
 
 #endif /* CTRLSSDL_H */

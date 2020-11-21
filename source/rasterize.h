@@ -21,7 +21,7 @@
 #include "render3D.h"
 #include "gfx3d.h"
 
-extern GPU3DInterface gpu3DRasterize;
+extern  GPU3DInterface gpu3DRasterize;
 
 union FragmentColor {
 	u32 color;
@@ -55,6 +55,8 @@ struct Fragment
 	};
 };
 
+extern volatile  u32 _screen[GFX3D_FRAMEBUFFER_WIDTH * GFX3D_FRAMEBUFFER_HEIGHT];
+
 class TexCacheItem;
 
 class SoftRasterizerEngine
@@ -80,11 +82,8 @@ public:
 	FragmentColor toonTable[32];
 	u8 fogTable[32768];
 	GFX3D_Clipper clipper;
-	GFX3D_Clipper::TClippedPoly *clippedPolys;
+	GFX3D_Clipper::TClippedPoly * clippedPolys;
 	int clippedPolyCounter;
-	TexCacheItem* polyTexKeys[POLYLIST_SIZE];
-	bool polyVisible[POLYLIST_SIZE];
-	bool polyBackfacing[POLYLIST_SIZE];
 	Fragment *screen;
 	FragmentColor *screenColor;
 	POLYLIST* polylist;

@@ -336,7 +336,9 @@ extern armcpu_t NDS_ARM7;
 extern armcpu_t NDS_ARM9;
 extern const armcpu_ctrl_iface arm_default_ctrl_iface;
 
-template<int PROCNUM> u32 armcpu_exec();
+int ARM7_ME(int data);
+
+template<int PROCNUM,bool Threaded> u32 armcpu_exec();
 #ifdef HAVE_JIT
 template<int PROCNUM, bool jit> u32 armcpu_exec();
 #endif

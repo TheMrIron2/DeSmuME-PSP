@@ -32,7 +32,7 @@
 #include <vector>
 
 #include "debug.h"
-#include "driver.h"
+//#include "driver.h"
 #include "MMU.h"
 #include "SPU.h"
 #include "mem.h"
@@ -41,6 +41,8 @@
 #include "NDSSystem.h"
 #include "matrix.h"
 #include "types.h"
+
+#include "PSP/pspvfpu.h"
 
 //HCF Sound quality (channels playing)
 int iSoundQuality = 1;
@@ -269,7 +271,7 @@ void SPU_Pause(int pause)
 void SPU_CloneUser()
 {
 	if(SPU_user) {
-		memcpy(SPU_user->channels,SPU_core->channels,sizeof(SPU_core->channels));
+		fast_memcpy(SPU_user->channels,SPU_core->channels,sizeof(SPU_core->channels));
 		SPU_user->regs = SPU_core->regs;
 	}
 }
@@ -1576,8 +1578,8 @@ static void SPU_MixAudio(bool actuallyMix, SPU_struct *SPU, int length)
 {
 	if(actuallyMix)
 	{
-		memset(SPU->sndbuf, 0, length*4*2);
-		memset(SPU->outbuf, 0, length*2*2);
+		fast_memset(SPU->sndbuf, 0, length*4*2);
+		fast_memset(SPU->outbuf, 0, length*2*2);
 	}
 
 	//we used to use master enable here, and do nothing if audio is disabled.
@@ -1659,8 +1661,8 @@ void SPU_Emulate_core()
 	// later in SPU_Emulate_user(). Disable mixing here to speed up processing.
 	// However, recording still needs to mix the audio, so make sure we're also
 	// not recording before we disable mixing.
-	if ( synchmode == ESynchMode_DualSynchAsynch &&
-		!(driver->AVI_IsRecording() || driver->WAV_IsRecording()) )
+	if ( synchmode == ESynchMode_DualSynchAsynch /*&&
+		!(driver->AVI_IsRecording() || driver->WAV_IsRecording())*/ )
 	{
 		needToMix = false;
 	}
@@ -1702,6 +1704,8 @@ void SPU_Emulate_user(bool mix)
 	{
 		return;
 	}
+
+	//printf("Samples: %d\n", freeSampleCount);
 	
 	//printf("mix %i samples\n", audiosize);
 	if (freeSampleCount > buffersize)
@@ -1727,7 +1731,7 @@ void SPU_Emulate_user(bool mix)
 	}
 	
 	soundProcessor->UpdateAudio(postProcessBuffer, processedSampleCount);
-	WAV_WavSoundUpdate(postProcessBuffer, processedSampleCount, WAVMODE_USER);
+	//WAV_WavSoundUpdate(postProcessBuffer, processedSampleCount, WAVMODE_USER);
 }
 
 void SPU_DefaultFetchSamples(s16 *sampleBuffer, size_t sampleCount, ESynchMode synchMode, ISynchronizingAudioBuffer *theSynchronizer)
@@ -1748,7 +1752,7 @@ size_t SPU_DefaultPostProcessSamples(s16 *postProcessBuffer, size_t requestedSam
 			if(SPU_user != NULL)
 			{
 				SPU_MixAudio(true, SPU_user, requestedSampleCount);
-				memcpy(postProcessBuffer, SPU_user->outbuf, requestedSampleCount * 2 * sizeof(s16));
+				fast_memcpy(postProcessBuffer, SPU_user->outbuf, requestedSampleCount * 2 * sizeof(s16));
 				processedSampleCount = requestedSampleCount;
 			}
 			break;
@@ -1842,13 +1846,13 @@ bool WavWriter::open(const std::string & fname)
 		return false;
 
 	// Do wave header
-	memcpy(waveheader.riff.id, "RIFF", 4);
+	fast_memcpy(waveheader.riff.id, "RIFF", 4);
 	waveheader.riff.size = 0; // we'll fix this after the file is closed
-	memcpy(waveheader.rifftype, "WAVE", 4);
+	fast_memcpy(waveheader.rifftype, "WAVE", 4);
 	elems_written += fwrite((void *)&waveheader, 1, sizeof(waveheader_struct), spufp);
 
 	// fmt chunk
-	memcpy(fmt.chunk.id, "fmt ", 4);
+	fast_memcpy(fmt.chunk.id, "fmt ", 4);
 	fmt.chunk.size = 16; // we'll fix this at the end
 	fmt.compress = 1; // PCM
 	fmt.numchan = 2; // Stereo
@@ -1859,7 +1863,7 @@ bool WavWriter::open(const std::string & fname)
 	elems_written += fwrite((void *)&fmt, 1, sizeof(fmt_struct), spufp);
 
 	// data chunk
-	memcpy(data.id, "data", 4);
+	fast_memcpy(data.id, "data", 4);
 	data.size = 0; // we'll fix this at the end
 	elems_written += fwrite((void *)&data, 1, sizeof(chunk_struct), spufp);
 
@@ -1915,7 +1919,7 @@ bool WAV_Begin(const char* fname, WAVMode mode)
 		mode = WAVMODE_CORE;
 	wavWriter.mode = mode;
 
-	driver->USR_InfoMessage("WAV recording started.");
+	//driver->USR_InfoMessage("WAV recording started.");
 
 	return true;
 }
