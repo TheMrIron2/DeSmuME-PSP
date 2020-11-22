@@ -102,7 +102,7 @@ ASFLAGS = $(CFLAGS)
 INCDIR =  ./libs/include
 
 LIBDIR = ./libs/lib
-LIBS  =  -lme -lintrafont -lpspdmac  -lpspmath -lpthread-psp -lpsppower -lglut -lpspgum  -lfreetype -lpng -lz  -lm -lpspgu -lpsphprm -lpspaudio -lstdc++ -lpspvfpu -lpsprtc -lvorbisidec
+LIBS  =  -lME -lintrafont -lpspdmac  -lpspmath -lpthread-psp -lpsppower -lglut -lpspgum  -lfreetype -lpng -lz  -lm -lpspgu -lpsphprm -lpspaudio -lstdc++ -lpspvfpu -lpsprtc -lvorbisidec
 LIBS += -lpspaudiolib -lpspvram  -lpspsdk
 
 EXTRA_TARGETS = EBOOT.PBP
