@@ -21,6 +21,7 @@
 #include <algorithm>
 #include <assert.h>
 #include <map>
+#include <malloc.h>
 
 #include "texcache.h"
 
@@ -33,8 +34,6 @@
 
 
 #include "PSP/pspvfpu.h"
-
-#include <oslib/oslib.h>
 
 using std::min;
 using std::max;
