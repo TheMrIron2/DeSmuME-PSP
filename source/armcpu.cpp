@@ -41,15 +41,22 @@
 
 //#include "PSP/JobManager.h"
 
-template<u32> static u32 armcpu_prefetch();
 
-FORCEINLINE u32 armcpu_prefetch(armcpu_t *armcpu) { 
+
+u32 _armcpu_prefetch(armcpu_t *armcpu) { 
 	if(armcpu->proc_ID==0) return armcpu_prefetch<0>();
 	else return armcpu_prefetch<1>();
 }
 
+u32 _armcpu_prefetch7() { 
+	return armcpu_prefetch<1>();
+}
+u32 _armcpu_prefetch9() { 
+	return armcpu_prefetch<0>();
+}
+ 
 extern int debuga;
-
+ 
 armcpu_t NDS_ARM7;
 armcpu_t NDS_ARM9;
 
@@ -277,7 +284,7 @@ void armcpu_init(armcpu_t *armcpu, u32 adr)
 	armcpu->CPSR.bits.T = BIT0(adr);
 	
 //#ifndef GDB_STUB
-	armcpu_prefetch(armcpu);
+	_armcpu_prefetch(armcpu);
 //#endif
 }
 
@@ -396,7 +403,7 @@ u32 armcpu_Wait4IRQ(armcpu_t *cpu)
 	cpu->halt_IE_and_IF = TRUE;
 	return 1;
 }
-
+ 
 template<u32 PROCNUM>
 FORCEINLINE static u32 armcpu_prefetch()
 {
@@ -464,6 +471,7 @@ FORCEINLINE static u32 armcpu_prefetch()
 
 	return MMU_codeFetchCycles<PROCNUM,16>(curInstruction);
 }
+
 
 #if 0 /* not used */
 static BOOL FASTCALL test_EQ(Status_Reg CPSR) { return ( CPSR.bits.Z); }
@@ -557,7 +565,7 @@ BOOL armcpu_irqException(armcpu_t *armcpu)
 
 	//must retain invariant of having next instruction to be executed prefetched
 	//(yucky)
-	armcpu_prefetch(armcpu);
+	_armcpu_prefetch(armcpu);
 
 	return TRUE;
 }
@@ -587,7 +595,7 @@ u32 TRAPUNDEF(armcpu_t* cpu)
 	}
 	else
 	{
-		emu_halt();
+		//emu_halt();
 		return 4;
 	}
 
@@ -631,7 +639,27 @@ int ARM7_ME(int data)
 	return MMU_fetchExecuteCycles<PROCNUM>(cExecute, cFetch);
 }
 
-template<int PROCNUM, bool Threaded>
+template<int PROCNUM>
+u32 armcpu_execTFast(){
+	u32 cExecute = thumb_instructions_set[PROCNUM][ARMPROC.instruction>>6](ARMPROC.instruction);
+	u32 cFetch = armcpu_prefetch<PROCNUM>();
+	return MMU_fetchExecuteCycles<PROCNUM>(cExecute, cFetch);
+}
+
+template<int PROCNUM>
+u32 armcpu_execAFast()
+{
+	// Usually, fetching and executing are processed parallelly.
+	// So this function stores the cycles of each process to
+	// the variables below, and returns appropriate cycle count.
+	u32 cExecute = arm_instructions_set[PROCNUM][INSTRUCTION_INDEX(ARMPROC.instruction)](ARMPROC.instruction);
+	u32 cFetch = armcpu_prefetch<PROCNUM>();
+
+	return MMU_fetchExecuteCycles<PROCNUM>(cExecute, cFetch);
+}
+
+
+template<int PROCNUM>
 u32 armcpu_exec()
 {
 	// Usually, fetching and executing are processed parallelly.
@@ -668,12 +696,39 @@ u32 armcpu_exec()
 	return MMU_fetchExecuteCycles<PROCNUM>(cExecute, cFetch);
 }
 
-//these templates needed to be instantiated manually
-template u32 armcpu_exec<0,false>();
-template u32 armcpu_exec<1,false>();
+template<int PROCNUM>
+u32 FastArmcpu_exec(u32 opcode)
+{
+	// Usually, fetching and executing are processed parallelly.
+	// So this function stores the cycles of each process to
+	// the variables below, and returns appropriate cycle count.
 
-template u32 armcpu_exec<0,true>();
-template u32 armcpu_exec<1,true>();
+	//if(ARMPROC.CPSR.bits.T == 0)
+	{
+		if (
+			 TEST_COND(CONDITION(opcode), CODE(opcode), ARMPROC.CPSR) //handles any condition
+		   )
+		{	
+			return arm_instructions_set[PROCNUM][INSTRUCTION_INDEX(opcode)](opcode);
+		
+		}
+		
+
+		return 1;
+	}
+}
+
+template u32 armcpu_exec<0>();
+template u32 armcpu_exec<1>();
+
+template u32 FastArmcpu_exec<0>(u32 opcode);
+template u32 FastArmcpu_exec<1>(u32 opcode);
+
+template u32 armcpu_execTFast<0>();
+template u32 armcpu_execTFast<1>();
+
+template u32 armcpu_execAFast<0>();
+template u32 armcpu_execAFast<1>();
 
 #ifdef HAVE_JIT
 void arm_jit_sync()

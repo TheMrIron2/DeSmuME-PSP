@@ -332,13 +332,25 @@ void armcpu_exception(armcpu_t *cpu, u32 number);
 u32 TRAPUNDEF(armcpu_t* cpu);
 u32 armcpu_Wait4IRQ(armcpu_t *cpu);
 
+u32 _armcpu_prefetch(armcpu_t *armcpu);
+
+u32 _armcpu_prefetch7();
+u32 _armcpu_prefetch9();
+
+template<u32> static u32 armcpu_prefetch();
+
 extern armcpu_t NDS_ARM7;
 extern armcpu_t NDS_ARM9;
 extern const armcpu_ctrl_iface arm_default_ctrl_iface;
 
 int ARM7_ME(int data);
 
-template<int PROCNUM,bool Threaded> u32 armcpu_exec();
+template<int PROCNUM> u32 armcpu_exec();
+template<int PROCNUM> u32 FastArmcpu_exec(u32 opcode);
+
+template<int PROCNUM> u32 armcpu_execAFast();
+template<int PROCNUM> u32 armcpu_execTFast();
+
 #ifdef HAVE_JIT
 template<int PROCNUM, bool jit> u32 armcpu_exec();
 #endif
