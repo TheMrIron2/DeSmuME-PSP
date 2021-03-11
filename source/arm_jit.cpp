@@ -34,6 +34,11 @@
 
 #include <pspsuspend.h>
 
+void __debugbreak() { fflush(stdout); *(int*)0=1;}
+#define dbgbreak {__debugbreak(); for(;;);}
+#define _T(x) x
+#define die(reason) { printf("Fatal error : %x %d\n in %s -> %s : %d \n",_T(reason),_T(__FUNCTION__),_T(__FILE__),__LINE__); dbgbreak;}
+
 
 typedef bool (FASTCALL* BOOLArmOpCompiled)();
 
@@ -145,7 +150,7 @@ static void init_jit_mem()
 }
 
 static bool thumb = false;
-
+static bool skip_prefeth = false;
 
 #define CODE_SIZE   (4*1024*1024)
 
@@ -212,11 +217,6 @@ static void emit_mpop(u32 n, ...)
     emit_addiu(psp_sp, psp_sp, u16(+4*n));
 }
 
-static bool bit(uint32_t value, uint32_t bit)
-{
-   return value & (1 << bit);
-}
-
 static void emit_prefetch(const u32 pc);
 static void sync_r15(u32 opcode, bool is_last, bool force);
 
@@ -249,7 +249,9 @@ enum OP_RESULT { OPR_CONTINUE, OPR_INTERPRET, OPR_BRANCHED, OPR_RESULT_SIZE = 21
 
 typedef OP_RESULT (*ArmOpCompiler)(uint32_t pc, uint32_t opcode);
 
-static u8 recompile_counts[(1<<26)/16];
+//static u8 recompile_counts[(1<<26)/16];
+
+#define _REG_NUM(i, n)		((i>>(n))&0x7)
 
 #define RCPU  psp_k0
 //#define RCYC  4
@@ -261,41 +263,31 @@ static u8 recompile_counts[(1<<26)/16];
 static uint32_t block_procnum;
 
 #define _ARMPROC (block_procnum ? NDS_ARM7 : NDS_ARM9)
+
 #define reg_offset(x) ((u32)(((u8*)&_ARMPROC.R[x]) - ((u8*)&_ARMPROC)))
 #define reg_pos_offset(x) ((u32)(((u8*)&_ARMPROC.R[REG_POS(i,x)]) - ((u8*)&_ARMPROC)))
-#define instrAdr_offset ((u32)(((u8*)&_ARMPROC.instruct_adr) - ((u8*)&_ARMPROC)))
-#define NextInstr_offset ((u32)(((u8*)&_ARMPROC.next_instruction) - ((u8*)&_ARMPROC)))
-#define instr_offset ((u32)(((u8*)&_ARMPROC.instruction) - ((u8*)&_ARMPROC)) )
+#define thumb_reg_pos_offset(x) ((u32)(((u8*)&_ARMPROC.R[_REG_NUM(i,x)]) - ((u8*)&_ARMPROC)))
 
-/*#define flagC_offset ((u32)(((u8*)&_ARMPROC.CPSR.bits.C) - ((u8*)&_ARMPROC)) )
-#define flagN_offset ((u32)(((u8*)&_ARMPROC.CPSR.bits.N) - ((u8*)&_ARMPROC)) )
-#define flagZ_offset ((u32)(((u8*)&_ARMPROC.CPSR.bits.Z) - ((u8*)&_ARMPROC)) )
-#define flagQ_offset ((u32)(((u8*)&_ARMPROC.CPSR.bits.Q) - ((u8*)&_ARMPROC)) )*/
+#define _R15 reg_offset(15)
 
-#define changeCPSR { \
-			emit_jal(NDS_Reschedule); \
-}
+#define _instr_adr ((u32)(((u8*)&_ARMPROC.instruct_adr) - ((u8*)&_ARMPROC)))
+#define _next_instr ((u32)(((u8*)&_ARMPROC.next_instruction) - ((u8*)&_ARMPROC)))
+#define _instr ((u32)(((u8*)&_ARMPROC.instruction) - ((u8*)&_ARMPROC)))
+
+#define _flags ((u32)(((u8*)&_ARMPROC.CPSR.val) - ((u8*)&_ARMPROC)))
+#define _flag_N 31
+#define _flag_Z 30
+#define _flag_C 29
 
 
-template <int PROCNUM>
-void arm_jit_prefetch(uint32_t pc, uint32_t opcode, bool thumb)
-{
-   const u8 isize = thumb ? 2 : 4;
+static void emit_Variableprefetch(const u32 pc,const u8 t){
+   const u8 isize = (thumb ? 2 : 4) * t;
 
-   emit_lui(psp_a0, pc >> 16);
-   emit_ori(psp_a0, psp_a0, pc &0xffff);
+   emit_addiu(psp_at, psp_gp, isize);
+   emit_sw(psp_at, psp_k0, _next_instr);
 
-   emit_sw(psp_a0, psp_k0, instrAdr_offset);
-
-   emit_addiu(psp_a0, psp_a0, isize);
-   emit_sw(psp_a0, psp_k0, NextInstr_offset);
-
-   emit_addiu(psp_a0, psp_a0, isize);
-   emit_sw(psp_a0, psp_k0, reg_offset(15));
-
-   emit_sw(psp_gp, psp_k0, instr_offset);
-
-   return;
+   emit_addiu(psp_at, psp_at, isize);
+   emit_sw(psp_at, psp_k0, _R15);
 }
 
 
@@ -326,17 +318,18 @@ void arm_jit_prefetch(uint32_t pc, uint32_t opcode, bool thumb)
 		emit_move(psp_a0, psp_zero); \
 	u32 rhs_first = imm ? _ARMPROC.R[REG_POS(i,0)] >> imm : 0;
 
-   #define ASR_IMM \
-      bool rhs_is_imm = false; \
-      u32 imm = ((i>>7)&0x1F); \
-      emit_lw(psp_a0,RCPU, reg_pos_offset(0)); \
-      if(!imm) imm = 31; \
-      emit_sra(psp_a0,psp_a0,imm); \
-      u32 rhs_first = (s32) _ARMPROC.R[REG_POS(i,0)] >> imm;
+#define ASR_IMM \
+   bool rhs_is_imm = false; \
+   u32 imm = ((i>>7)&0x1F); \
+   emit_lw(psp_a0,RCPU, reg_pos_offset(0)); \
+   if(!imm) imm = 31; \
+   emit_sra(psp_a0,psp_a0,imm); \
+   u32 rhs_first = (s32) _ARMPROC.R[REG_POS(i,0)] >> imm;
 
-//rhs = psp_a0
-//imm = psp_a1
-//tmp = psp_at
+#define IMM_VAL \
+	u32 rhs = ROR((i&0xFF), (i>>7)&0x1E); \
+   emit_lui(psp_a0,rhs>>16); \
+   emit_ori(psp_a0,psp_a0,rhs&0xFFFF);
 
 //Hlide
 #define LSX_REG(name, op)               \
@@ -348,14 +341,14 @@ void arm_jit_prefetch(uint32_t pc, uint32_t opcode, bool thumb)
    op(psp_a0, psp_a0, psp_a1);                \
    emit_movz(psp_a0, psp_zero, psp_at);
 
-//Hlide
+//Hlide //Needs more check (it gives wrong values under some circmstances)
 #define ASX_REG(name, op)               \
    bool rhs_is_imm = false;              \
    u32 rhs = 0;                           \
    emit_lw(psp_a0,RCPU,reg_pos_offset(0)); \
    emit_lbu(psp_a1,RCPU,reg_pos_offset(8)); \
    emit_sltiu(psp_at,psp_a1, 32);            \   
-   emit_ext(psp_a2,psp_a1, 31, 1);            \   
+   emit_ext(psp_a2,psp_a1, 31, 31);           \   
    emit_subu(psp_a2,psp_zero, psp_a2);         \   
    op(psp_a0, psp_a0, psp_a1);                  \
    emit_movz(psp_a0, psp_a2, psp_at);
@@ -384,8 +377,62 @@ void arm_jit_prefetch(uint32_t pc, uint32_t opcode, bool thumb)
 	} \
    if(REG_POS(i,12)==15) \
    { \
-      emit_lw(psp_at, RCPU, reg_offset(15)); \
-      emit_sw(psp_at, RCPU, NextInstr_offset); \
+      emit_lw(psp_at, RCPU, _R15); \
+      emit_sw(psp_at, RCPU, _next_instr); \
+   } \
+   return OPR_RESULT(OPR_CONTINUE, 2);
+
+#define ARITHM_PSP_I(arg, op) \
+   arg\
+   \
+   if(REG_POS(i,12) == REG_POS(i,16)){ \
+      emit_lw(psp_a3, RCPU, reg_pos_offset(12)); \
+		op(psp_a3, psp_a3,psp_a0); \
+      emit_sw(psp_a3, RCPU, reg_pos_offset(12)); \
+   }else \
+	{ \
+		emit_lw(psp_a3, RCPU, reg_pos_offset(16)); \
+		op(psp_a3, psp_a3,psp_a0); \
+      emit_sw(psp_a3, RCPU, reg_pos_offset(12)); \
+	} \
+   \
+   if(REG_POS(i,12)==15) \
+   { \
+      emit_lw(psp_at, RCPU, _R15); \
+      emit_sw(psp_at, RCPU, _next_instr); \
+   } \
+   return OPR_RESULT(OPR_CONTINUE, 2);
+
+
+#define ARITHM_PSP_C(arg, op, symmetric) \
+   arg\
+   \
+   emit_lw(psp_at,RCPU,_flags); \
+   emit_ext(psp_at,psp_at,_flag_C,_flag_C); \
+   \
+   if(REG_POS(i,12) == REG_POS(i,16)){ \
+      emit_lw(psp_a3, RCPU, reg_pos_offset(12)); \
+		op(psp_a3, psp_a3,psp_a0); \
+      emit_addu(psp_a3,psp_a3,psp_at);\
+      emit_sw(psp_a3, RCPU, reg_pos_offset(12)); \
+   }else if(symmetric && !rhs_is_imm) \
+	{ \
+		emit_lw(psp_a3, RCPU, reg_pos_offset(16)); \
+		op(psp_a3, psp_a0,psp_a3); \
+      emit_addu(psp_a3,psp_a3,psp_at);\
+      emit_sw(psp_a3, RCPU, reg_pos_offset(12)); \
+	} \
+   else \
+	{ \
+		emit_lw(psp_a3, RCPU, reg_pos_offset(16)); \
+		op(psp_a3, psp_a3,psp_a0); \
+      emit_addu(psp_a3,psp_a3,psp_at);\
+      emit_sw(psp_a3, RCPU, reg_pos_offset(12)); \
+	} \
+   if(REG_POS(i,12)==15) \
+   { \
+      emit_lw(psp_at, RCPU, _R15); \
+      emit_sw(psp_at, RCPU, _next_instr); \
    } \
    return OPR_RESULT(OPR_CONTINUE, 2);
 
@@ -397,7 +444,7 @@ static OP_RESULT ARM_OP_AND_ASR_IMM (uint32_t pc, const u32 i) { sync_r15(i, fal
 static OP_RESULT ARM_OP_AND_ASR_REG (uint32_t pc, const u32 i) { sync_r15(i, false, 0); ARITHM_PSP(ASR_REG, emit_and, 1); }
 #define ARM_OP_AND_ROR_IMM 0//(uint32_t pc, const u32 i) { return OPR_INTERPRET;/*OP_ARITHMETIC(ROR_IMM, and_, 1, 0);*/ }
 #define ARM_OP_AND_ROR_REG 0//(uint32_t pc, const u32 i) { return OPR_INTERPRET;/*OP_ARITHMETIC(ROR_REG, and_, 1, 0);*/ }
-#define ARM_OP_AND_IMM_VAL 0//(uint32_t pc, const u32 i) { return OPR_INTERPRET;/*OP_ARITHMETIC(IMM_VAL, and_, 1, 0);*/ }
+static OP_RESULT ARM_OP_AND_IMM_VAL (uint32_t pc, const u32 i) { sync_r15(i, false, 0); ARITHM_PSP_I(IMM_VAL, emit_and); }
 
 static OP_RESULT ARM_OP_EOR_LSL_IMM (uint32_t pc, const u32 i) { sync_r15(i, false, 0); ARITHM_PSP(LSL_IMM, emit_xor, 1); }
 static OP_RESULT ARM_OP_EOR_LSL_REG (uint32_t pc, const u32 i) { sync_r15(i, false, 0); ARITHM_PSP(LSL_REG, emit_xor, 1); }
@@ -407,7 +454,7 @@ static OP_RESULT ARM_OP_EOR_ASR_IMM (uint32_t pc, const u32 i) { sync_r15(i, fal
 static OP_RESULT ARM_OP_EOR_ASR_REG (uint32_t pc, const u32 i) { sync_r15(i, false, 0); ARITHM_PSP(ASR_REG, emit_xor, 1); }
 #define ARM_OP_EOR_ROR_IMM  0//(uint32_t pc, const u32 i) { return OPR_INTERPRET;/*OP_ARITHMETIC(ROR_IMM, xor_, 1, 0);*/ }
 #define ARM_OP_EOR_ROR_REG  0//(uint32_t pc, const u32 i) { return OPR_INTERPRET;/*OP_ARITHMETIC(ROR_REG, xor_, 1, 0);*/ }
-#define ARM_OP_EOR_IMM_VAL  0//(uint32_t pc, const u32 i) { return OPR_INTERPRET;/*OP_ARITHMETIC(IMM_VAL, xor_, 1, 0);*/ }
+static OP_RESULT ARM_OP_EOR_IMM_VAL (uint32_t pc, const u32 i) { sync_r15(i, false, 0); ARITHM_PSP_I(IMM_VAL, emit_xor); }
  
 static OP_RESULT ARM_OP_ORR_LSL_IMM (uint32_t pc, const u32 i) { sync_r15(i, false, 0); ARITHM_PSP(LSL_IMM, emit_or, 1); }
 static OP_RESULT ARM_OP_ORR_LSL_REG (uint32_t pc, const u32 i) { sync_r15(i, false, 0); ARITHM_PSP(LSL_REG, emit_or, 1); }
@@ -417,7 +464,7 @@ static OP_RESULT ARM_OP_ORR_ASR_IMM (uint32_t pc, const u32 i) { sync_r15(i, fal
 static OP_RESULT ARM_OP_ORR_ASR_REG (uint32_t pc, const u32 i) { sync_r15(i, false, 0); ARITHM_PSP(ASR_REG, emit_or, 1); }
 #define ARM_OP_ORR_ROR_IMM 0//(uint32_t pc, const u32 i) { return OPR_INTERPRET;/*OP_ARITHMETIC(ROR_IMM, or_, 1, 0);*/ }
 #define ARM_OP_ORR_ROR_REG 0//(uint32_t pc, const u32 i) { return OPR_INTERPRET;/*OP_ARITHMETIC(ROR_REG, or_, 1, 0);*/ }
-#define ARM_OP_ORR_IMM_VAL 0//(uint32_t pc, const u32 i) { return OPR_INTERPRET;/*OP_ARITHMETIC(IMM_VAL, or_, 1, 0);*/ }
+static OP_RESULT ARM_OP_ORR_IMM_VAL (uint32_t pc, const u32 i) { sync_r15(i, false, 0); ARITHM_PSP_I(IMM_VAL, emit_or); }
  
 static OP_RESULT ARM_OP_ADD_LSL_IMM (uint32_t pc, const u32 i) { sync_r15(i, false, 0); ARITHM_PSP(LSL_IMM, emit_addu, 1); }
 static OP_RESULT ARM_OP_ADD_LSL_REG (uint32_t pc, const u32 i) { sync_r15(i, false, 0); ARITHM_PSP(LSL_REG, emit_addu, 1); }
@@ -427,7 +474,7 @@ static OP_RESULT ARM_OP_ADD_ASR_IMM (uint32_t pc, const u32 i) { sync_r15(i, fal
 static OP_RESULT ARM_OP_ADD_ASR_REG (uint32_t pc, const u32 i) { sync_r15(i, false, 0); ARITHM_PSP(ASR_REG, emit_addu, 1); }
 #define ARM_OP_ADD_ROR_IMM 0//(uint32_t pc, const u32 i) = 0;//{ return OPR_INTERPRET;/*OP_ARITHMETIC(ROR_IMM, add, 1, 0);*/ }
 #define ARM_OP_ADD_ROR_REG 0//(uint32_t pc, const u32 i) = 0;//{ return OPR_INTERPRET;/*OP_ARITHMETIC(ROR_REG, add, 1, 0);*/ }
-#define ARM_OP_ADD_IMM_VAL 0//(uint32_t pc, const u32 i) = 0;//{ return OPR_INTERPRET;/*OP_ARITHMETIC(IMM_VAL, add, 1, 0);*/ }
+static OP_RESULT ARM_OP_ADD_IMM_VAL (uint32_t pc, const u32 i) { sync_r15(i, false, 0); ARITHM_PSP_I(IMM_VAL, emit_addu); }
 
 static OP_RESULT ARM_OP_SUB_LSL_IMM(uint32_t pc, const u32 i) { sync_r15(i, false, 0); ARITHM_PSP(LSL_IMM, emit_subu, 0); }
 static OP_RESULT ARM_OP_SUB_LSL_REG(uint32_t pc, const u32 i) { sync_r15(i, false, 0); ARITHM_PSP(LSL_REG, emit_subu, 0); }
@@ -437,56 +484,92 @@ static OP_RESULT ARM_OP_SUB_ASR_IMM(uint32_t pc, const u32 i) { sync_r15(i, fals
 static OP_RESULT ARM_OP_SUB_ASR_REG(uint32_t pc, const u32 i) { sync_r15(i, false, 0); ARITHM_PSP(ASR_REG, emit_subu, 0); }
 #define ARM_OP_SUB_ROR_IMM 0//(uint32_t pc, const u32 i){ return OPR_INTERPRET;/*OP_ARITHMETIC(ROR_IMM, sub, 0, 0);*/ }
 #define ARM_OP_SUB_ROR_REG 0//(uint32_t pc, const u32 i){ return OPR_INTERPRET;/*OP_ARITHMETIC(ROR_REG, sub, 0, 0);*/ }
-#define ARM_OP_SUB_IMM_VAL 0//(uint32_t pc, const u32 i){ return OPR_INTERPRET;/*OP_ARITHMETIC(IMM_VAL, sub, 0, 0);*/ }
+static OP_RESULT ARM_OP_SUB_IMM_VAL(uint32_t pc, const u32 i) { sync_r15(i, false, 0); ARITHM_PSP_I(IMM_VAL, emit_subu);  }
+
+static OP_RESULT ARM_OP_BIC_LSL_IMM(uint32_t pc, const u32 i) { sync_r15(i, false, 0); ARITHM_PSP(LSL_IMM; emit_not(psp_a0,psp_a0);, emit_and, 1); }
+static OP_RESULT ARM_OP_BIC_LSL_REG(uint32_t pc, const u32 i) { sync_r15(i, false, 0); ARITHM_PSP(LSL_REG; emit_not(psp_a0,psp_a0);, emit_and, 1); }
+static OP_RESULT ARM_OP_BIC_LSR_IMM(uint32_t pc, const u32 i) { sync_r15(i, false, 0); ARITHM_PSP(LSR_IMM; emit_not(psp_a0,psp_a0);, emit_and, 1); }
+static OP_RESULT ARM_OP_BIC_LSR_REG(uint32_t pc, const u32 i) { sync_r15(i, false, 0); ARITHM_PSP(LSR_REG; emit_not(psp_a0,psp_a0);, emit_and, 1); }
+static OP_RESULT ARM_OP_BIC_ASR_IMM(uint32_t pc, const u32 i) { sync_r15(i, false, 0); ARITHM_PSP(ASR_IMM; emit_not(psp_a0,psp_a0);, emit_and, 1); }
+static OP_RESULT ARM_OP_BIC_ASR_REG(uint32_t pc, const u32 i) { sync_r15(i, false, 0); ARITHM_PSP(ASR_REG; emit_not(psp_a0,psp_a0);, emit_and, 1); }
+//static OP_RESULT ARM_OP_BIC_ROR_IMM(uint32_t pc, const u32 i) { sync_r15(i, false, 0); ARITHM_PSP(LSL_IMM; emit_not(psp_a0,psp_a0), emit_and, 0); }
+//static OP_RESULT ARM_OP_BIC_ROR_REG(uint32_t pc, const u32 i) { sync_r15(i, false, 0); ARITHM_PSP(LSL_IMM; emit_not(psp_a0,psp_a0), emit_and, 0); }
+static OP_RESULT ARM_OP_BIC_IMM_VAL(uint32_t pc, const u32 i) { sync_r15(i, false, 0); ARITHM_PSP_I(IMM_VAL; emit_not(psp_a0,psp_a0);, emit_and); }
+#define ARM_OP_BIC_ROR_IMM 0
+#define ARM_OP_BIC_ROR_REG 0
+
+/*
+static OP_RESULT ARM_OP_SBC_LSL_IMM(uint32_t pc, const u32 i) { OP_ARITHMETIC(LSL_IMM; GET_CARRY(1), sbb, 0, 0); }
+static OP_RESULT ARM_OP_SBC_LSL_REG(uint32_t pc, const u32 i) { OP_ARITHMETIC(LSL_REG; GET_CARRY(1), sbb, 0, 0); }
+static OP_RESULT ARM_OP_SBC_LSR_IMM(uint32_t pc, const u32 i) { OP_ARITHMETIC(LSR_IMM; GET_CARRY(1), sbb, 0, 0); }
+static OP_RESULT ARM_OP_SBC_LSR_REG(uint32_t pc, const u32 i) { OP_ARITHMETIC(LSR_REG; GET_CARRY(1), sbb, 0, 0); }
+static OP_RESULT ARM_OP_SBC_ASR_IMM(uint32_t pc, const u32 i) { OP_ARITHMETIC(ASR_IMM; GET_CARRY(1), sbb, 0, 0); }
+static OP_RESULT ARM_OP_SBC_ASR_REG(uint32_t pc, const u32 i) { OP_ARITHMETIC(ASR_REG; GET_CARRY(1), sbb, 0, 0); }
+static OP_RESULT ARM_OP_SBC_ROR_IMM(uint32_t pc, const u32 i) { OP_ARITHMETIC(ROR_IMM; GET_CARRY(1), sbb, 0, 0); }
+static OP_RESULT ARM_OP_SBC_ROR_REG(uint32_t pc, const u32 i) { OP_ARITHMETIC(ROR_REG; GET_CARRY(1), sbb, 0, 0); }
+static OP_RESULT ARM_OP_SBC_IMM_VAL(uint32_t pc, const u32 i) { OP_ARITHMETIC(IMM_VAL; GET_CARRY(1), sbb, 0, 0); }
+*/
+
+/*
+static OP_RESULT OP_RSB_S_LSL_IMM(const u32 i) { OP_ARITHMETIC_R(LSL_IMM, sub, 1); }
+static OP_RESULT OP_RSB_S_LSL_REG(const u32 i) { OP_ARITHMETIC_R(LSL_REG, sub, 1); }
+static OP_RESULT OP_RSB_S_LSR_IMM(const u32 i) { OP_ARITHMETIC_R(LSR_IMM, sub, 1); }
+static OP_RESULT OP_RSB_S_LSR_REG(const u32 i) { OP_ARITHMETIC_R(LSR_REG, sub, 1); }
+static OP_RESULT OP_RSB_S_ASR_IMM(const u32 i) { OP_ARITHMETIC_R(ASR_IMM, sub, 1); }
+static OP_RESULT OP_RSB_S_ASR_REG(const u32 i) { OP_ARITHMETIC_R(ASR_REG, sub, 1); }
+#define OP_RSB_S_ROR_IMM 0
+#define OP_RSB_S_ROR_REG 0
+#define OP_RSB_S_IMM_VAL 0*/
+
+static OP_RESULT ARM_OP_ADC_LSL_IMM(uint32_t pc, const u32 i) {sync_r15(i, false, 0); ARITHM_PSP_C(LSL_IMM, emit_addu, 1); }
+static OP_RESULT ARM_OP_ADC_LSL_REG(uint32_t pc, const u32 i) {sync_r15(i, false, 0); ARITHM_PSP_C(LSL_REG, emit_addu, 1); }
+static OP_RESULT ARM_OP_ADC_LSR_IMM(uint32_t pc, const u32 i) {sync_r15(i, false, 0); ARITHM_PSP_C(LSR_IMM, emit_addu, 1); }
+static OP_RESULT ARM_OP_ADC_LSR_REG(uint32_t pc, const u32 i) {sync_r15(i, false, 0); ARITHM_PSP_C(LSR_REG, emit_addu, 1); }
+static OP_RESULT ARM_OP_ADC_ASR_IMM(uint32_t pc, const u32 i) {sync_r15(i, false, 0); ARITHM_PSP_C(ASR_IMM, emit_addu, 1); }
+static OP_RESULT ARM_OP_ADC_ASR_REG(uint32_t pc, const u32 i) {sync_r15(i, false, 0); ARITHM_PSP_C(ASR_REG, emit_addu, 1); }
+#define ARM_OP_ADC_ROR_IMM 0//(const u32 i) { OP_ARITHMETIC(ROR_IMM; GET_CARRY(0), adc, 1, 0); }
+#define ARM_OP_ADC_ROR_REG 0//(const u32 i) { OP_ARITHMETIC(ROR_REG; GET_CARRY(0), adc, 1, 0); }
+//#define ARM_OP_ADC_IMM_VAL 0
+static OP_RESULT ARM_OP_ADC_IMM_VAL(uint32_t pc, const u32 i) { sync_r15(i, false, 0); ARITHM_PSP_I(IMM_VAL; emit_lw(psp_at,RCPU,_flags);
+   emit_ext(psp_at,psp_at,_flag_C,_flag_C); emit_addu(psp_a0,psp_a0,psp_at);, emit_addu); }
  
 //-----------------------------------------------------------------------------
 //   MOV
 //-----------------------------------------------------------------------------
 #define OP_MOV(arg) \
-    arg; \
+   arg; \
 	emit_sw(psp_a0, RCPU, reg_pos_offset(12)); \ 
 	if(REG_POS(i,12)==15) \
 	{ \
-		emit_lw(psp_at, RCPU, reg_offset(15)); \
-      emit_sw(psp_at, RCPU, NextInstr_offset); \
+		emit_lw(psp_at, RCPU, _R15); \
+      emit_sw(psp_at, RCPU, _next_instr); \
 		return OPR_RESULT(OPR_CONTINUE, 1); \
 	} \
     return OPR_RESULT(OPR_CONTINUE, 1);
 
-static OP_RESULT ARM_OP_MOV_LSL_IMM(uint32_t pc, const u32 i) { sync_r15(i, false, 0); if (i == 0xE1A00000) { return OPR_RESULT(OPR_CONTINUE, 1); } OP_MOV(LSL_IMM); }
+static OP_RESULT ARM_OP_MOV_LSL_IMM(uint32_t pc, const u32 i) { if (i == 0xE1A00000) { /*NOP*/ skip_prefeth = true; emit_Variableprefetch(pc,2); return OPR_RESULT(OPR_CONTINUE, 1); } sync_r15(i, false, 0); OP_MOV(LSL_IMM); }
 static OP_RESULT ARM_OP_MOV_LSL_REG(uint32_t pc, const u32 i) { sync_r15(i, false, 0); OP_MOV(LSL_REG; if (REG_POS(i,0) == 15) emit_addiu(psp_a0, psp_a0, 4);); }
 static OP_RESULT ARM_OP_MOV_LSR_IMM(uint32_t pc, const u32 i) { sync_r15(i, false, 0); OP_MOV(LSR_IMM); }
 static OP_RESULT ARM_OP_MOV_LSR_REG(uint32_t pc, const u32 i) { sync_r15(i, false, 0); OP_MOV(LSR_REG; if (REG_POS(i,0) == 15) emit_addiu(psp_a0, psp_a0, 4);); }
 static OP_RESULT ARM_OP_MOV_ASR_IMM(uint32_t pc, const u32 i) { sync_r15(i, false, 0); OP_MOV(ASR_IMM); }
 static OP_RESULT ARM_OP_MOV_ASR_REG(uint32_t pc, const u32 i) { sync_r15(i, false, 0); OP_MOV(ASR_REG); }
+static OP_RESULT ARM_OP_MOV_IMM_VAL(uint32_t pc, const u32 i) { sync_r15(i, false, 0); OP_MOV(IMM_VAL); }
 #define ARM_OP_MOV_ROR_IMM 0
 #define ARM_OP_MOV_ROR_REG 0
-#define ARM_OP_MOV_IMM_VAL 0
-/*
-static int OP_MOV_ROR_IMM(const u32 i) { sync_r15(i, false, 0); OP_MOV(ROR_IMM); }
-static int OP_MOV_ROR_REG(const u32 i) { sync_r15(i, false, 0); OP_MOV(ROR_REG); }
-static int OP_MOV_IMM_VAL(const u32 i) { sync_r15(i, false, 0); OP_MOV(IMM_VAL); }
-*/
 
 
 //-----------------------------------------------------------------------------
 //   MVN
 //-----------------------------------------------------------------------------
-static OP_RESULT ARM_OP_MVN_LSL_IMM(uint32_t pc, const u32 i) { OP_MOV(LSL_IMM; emit_not(psp_a0, psp_a0)); }
-static OP_RESULT ARM_OP_MVN_LSL_REG(uint32_t pc, const u32 i) { OP_MOV(LSL_REG; emit_not(psp_a0, psp_a0)); }
-static OP_RESULT ARM_OP_MVN_LSR_IMM(uint32_t pc, const u32 i) { OP_MOV(LSR_IMM; emit_not(psp_a0, psp_a0)); }
-static OP_RESULT ARM_OP_MVN_LSR_REG(uint32_t pc, const u32 i) { OP_MOV(LSR_REG; emit_not(psp_a0, psp_a0)); }
-static OP_RESULT ARM_OP_MVN_ASR_IMM(uint32_t pc, const u32 i) { OP_MOV(ASR_IMM; emit_not(psp_a0, psp_a0)); }
-static OP_RESULT ARM_OP_MVN_ASR_REG(uint32_t pc, const u32 i) { OP_MOV(ASR_REG; emit_not(psp_a0, psp_a0)); }
+static OP_RESULT ARM_OP_MVN_LSL_IMM(uint32_t pc, const u32 i) {sync_r15(i, false, 0); OP_MOV(LSL_IMM; emit_not(psp_a0, psp_a0)); }
+static OP_RESULT ARM_OP_MVN_LSL_REG(uint32_t pc, const u32 i) {sync_r15(i, false, 0); OP_MOV(LSL_REG; emit_not(psp_a0, psp_a0)); }
+static OP_RESULT ARM_OP_MVN_LSR_IMM(uint32_t pc, const u32 i) {sync_r15(i, false, 0); OP_MOV(LSR_IMM; emit_not(psp_a0, psp_a0)); }
+static OP_RESULT ARM_OP_MVN_LSR_REG(uint32_t pc, const u32 i) {sync_r15(i, false, 0); OP_MOV(LSR_REG; emit_not(psp_a0, psp_a0)); }
+static OP_RESULT ARM_OP_MVN_ASR_IMM(uint32_t pc, const u32 i) {sync_r15(i, false, 0); OP_MOV(ASR_IMM; emit_not(psp_a0, psp_a0)); }
+static OP_RESULT ARM_OP_MVN_ASR_REG(uint32_t pc, const u32 i) {sync_r15(i, false, 0); OP_MOV(ASR_REG; emit_not(psp_a0, psp_a0)); }
+static OP_RESULT ARM_OP_MVN_IMM_VAL(uint32_t pc, const u32 i) {sync_r15(i, false, 0); OP_MOV(IMM_VAL; emit_not(psp_a0, psp_a0)); }
 #define ARM_OP_MVN_ROR_IMM 0
 #define ARM_OP_MVN_ROR_REG 0
-#define ARM_OP_MVN_IMM_VAL 0
-/*
-static int OP_MVN_ROR_IMM(const u32 i) { OP_MOV(ROR_IMM; emit_not(psp_a0, psp_a0)); }
-static int OP_MVN_ROR_REG(const u32 i) { OP_MOV(ROR_REG; emit_not(psp_a0, psp_a0)); }
-static int OP_MVN_IMM_VAL(const u32 i) { OP_MOV(IMM_VAL; rhs = ~rhs); }
-*/
-
 
 template <int AT16, int AT12, int AT8, int AT0, bool S, uint32_t CYC>
 static OP_RESULT ARM_OP_PATCH(uint32_t pc, uint32_t opcode)
@@ -515,7 +598,7 @@ ARM_ALU_OP_DEF(RSB  , 2, 1, false);
 ARM_ALU_OP_DEF(RSB_S, 2, 1, true);
 //ARM_ALU_OP_DEF(ADD  , 2, 1, false);
 ARM_ALU_OP_DEF(ADD_S, 2, 1, true);
-ARM_ALU_OP_DEF(ADC  , 2, 1, false);
+//ARM_ALU_OP_DEF(ADC  , 2, 1, false);
 ARM_ALU_OP_DEF(ADC_S, 2, 1, true);
 ARM_ALU_OP_DEF(SBC  , 2, 1, false);
 ARM_ALU_OP_DEF(SBC_S, 2, 1, true);
@@ -529,7 +612,7 @@ ARM_ALU_OP_DEF(CMN  , 0, 1, true);
 ARM_ALU_OP_DEF(ORR_S, 2, 1, true);
 //ARM_ALU_OP_DEF(MOV  , 2, 0, false);
 ARM_ALU_OP_DEF(MOV_S, 2, 0, true);
-ARM_ALU_OP_DEF(BIC  , 2, 1, false);
+//ARM_ALU_OP_DEF(BIC  , 2, 1, false);
 ARM_ALU_OP_DEF(BIC_S, 2, 1, true);
 //ARM_ALU_OP_DEF(MVN  , 2, 0, false);
 ARM_ALU_OP_DEF(MVN_S, 2, 0, true);
@@ -622,10 +705,6 @@ static u32 FASTCALL OP_STRB(u32 adr, u32 data)
 static OP_RESULT ARM_OP_STR(uint32_t pc, uint32_t opcode)
 {
    return OPR_INTERPRET;
-   /*emit_lw(psp_a0, RCPU, reg_offset(16));
-   emit_lw(psp_a1, RCPU, reg_offset(12));
-   
-   return OPR_RESULT(OPR_CONTINUE, 3);*/
 }
 
 #define ARM_MEM_HALF_OP_DEF2(T, P) \
@@ -646,76 +725,37 @@ ARM_MEM_HALF_OP_DEF(LDRSB);
 ARM_MEM_HALF_OP_DEF(STRSH);
 ARM_MEM_HALF_OP_DEF(LDRSH);
 
-//
-#define SIGNEXTEND_24(i) (((s32)i<<8)>>8)
-static OP_RESULT ARM_OP_B_BL(uint32_t pc, uint32_t opcode)
+#define ARM_OP_B  0
+#define ARM_OP_BL 0
+
+//-----------------------------------------------------------------------------
+//   MRS / MSR
+//-----------------------------------------------------------------------------
+static OP_RESULT ARM_OP_MRS_CPSR(uint32_t pc, const u32 i)
 {
-   return OPR_INTERPRET;
-   /*
-   const AG_COND cond = (AG_COND)bit(opcode, 28, 4);
-   const bool has_link = bit(opcode, 24);
-
-   const bool unconditional = (cond == AL || cond == EGG);
-   int32_t regs[1] = { (has_link || cond == EGG) ? 14 : -1 };
-   regman->get(1, regs);
-
-   uint32_t dest = (pc + 8 + (SIGNEXTEND_24(bit(opcode, 0, 24)) << 2));
-
-   if (!unconditional)
-   {
-      block->load_constant(0, pc + 4);
-
-      block->b("run", cond);
-      block->b("skip");
-      block->set_label("run");
-   }
-   
-   if (cond == EGG)
-   {
-      change_mode(true);
-
-      if (has_link)
-      {
-         dest += 2;
-      }
-   }
-
-   if (has_link || cond == EGG)
-   {
-      block->load_constant(regs[0], pc + 4);
-      regman->mark_dirty(regs[0]);
-   }
-
-   block->load_constant(0, dest);
-
-   if (!unconditional)
-   {
-      block->set_label("skip");
-      block->resolve_label("run");
-      block->resolve_label("skip");
-   }
-
-   block->str(0, RCPU, mem2::imm(offsetof(armcpu_t, instruct_adr)));
-
-
-   // TODO: Timing
-   return OPR_RESULT(OPR_BRANCHED, 3);*/
+   sync_r15(i, false, 0);
+   emit_lw(psp_at,RCPU,_flags); //CPSR ADDR
+   emit_sw(psp_at,RCPU,reg_pos_offset(12));
+	return OPR_RESULT(OPR_CONTINUE, 1);
 }
 
-#define ARM_OP_B  ARM_OP_B_BL
-#define ARM_OP_BL ARM_OP_B_BL
-
-////
+static OP_RESULT ARM_OP_MRS_SPSR(uint32_t pc, const u32 i)
+{
+   sync_r15(i, false, 0);
+	emit_lw(psp_a0,RCPU,_flags + 4); //SPSR ADDR
+   emit_sw(psp_a0,RCPU,reg_pos_offset(12));
+	return OPR_RESULT(OPR_CONTINUE, 1);
+}
 
 #define ARM_OP_LDRD_STRD_POST_INDEX 0
 #define ARM_OP_LDRD_STRD_OFFSET_PRE_INDEX 0
-#define ARM_OP_MRS_CPSR 0
+//#define ARM_OP_MRS_CPSR 0
 #define ARM_OP_SWP 0
 #define ARM_OP_MSR_CPSR 0
 #define ARM_OP_BX 0
 #define ARM_OP_BLX_REG 0
 #define ARM_OP_BKPT 0
-#define ARM_OP_MRS_SPSR 0
+//#define ARM_OP_MRS_SPSR 0
 #define ARM_OP_SWPB 0
 #define ARM_OP_MSR_SPSR 0
 #define ARM_OP_STREX 0
@@ -782,461 +822,423 @@ static const ArmOpCompiler arm_instruction_compilers[4096] = {
 ////////
 // THUMB
 ////////
+
 static OP_RESULT THUMB_OP_SHIFT(uint32_t pc, uint32_t opcode)
 {
    return OPR_INTERPRET;
-   /*const uint32_t rd = bit(opcode, 0, 3);
-   const uint32_t rs = bit(opcode, 3, 3);
-   const uint32_t imm = bit(opcode, 6, 5);
-   const AG_ALU_SHIFT op = (AG_ALU_SHIFT)bit(opcode, 11, 2);
+}
 
-   int32_t regs[2] = { rd | 0x10, rs };
-   regman->get(2, regs);
+static OP_RESULT THUMB_OP_LSL_0(uint32_t pc, const u32 i)
+{
+   sync_r15(i, false, 0);
 
-   const reg_t nrd = regs[0];
-   const reg_t nrs = regs[1];
+   emit_lw(psp_a0,RCPU,thumb_reg_pos_offset(3));
+   emit_sw(psp_a0,RCPU,thumb_reg_pos_offset(0));
 
-   block->movs(nrd, alu2::reg_shift_imm(nrs, op, imm));
-   mark_status_dirty();
+   emit_ext(psp_a1,psp_a0,31,31);
 
-   regman->mark_dirty(nrd);
+   emit_lw(psp_at,RCPU,_flags);
+   emit_ins(psp_at,psp_a1,_flag_N, _flag_N);
 
-   return OPR_RESULT(OPR_CONTINUE, 1);*/
+   emit_sltiu(psp_a1, psp_a0, 1);
+   emit_ins(psp_at,psp_a1,_flag_Z, _flag_Z);
+
+   emit_sw(psp_at,RCPU,_flags);
+
+   return OPR_RESULT(OPR_CONTINUE, 1);
+}
+
+static OP_RESULT THUMB_OP_LSL(uint32_t pc, const u32 i)
+{
+   sync_r15(i, false, 0);
+
+   u32 v = (i>>6) & 0x1F;
+
+   emit_lw(psp_at,RCPU,_flags); //load flag reg
+
+   emit_lw(psp_a0,RCPU,thumb_reg_pos_offset(3));
+   emit_ext(psp_a1,psp_a0,32-v,32-v);
+   emit_ins(psp_at,psp_a1,_flag_C, _flag_C); //C 
+
+   emit_sll(psp_a0,psp_a0,v);
+   emit_sw(psp_a0,RCPU,thumb_reg_pos_offset(0));
+
+   emit_ext(psp_a1,psp_a0,31,31);
+   emit_ins(psp_at,psp_a1,_flag_N, _flag_N); //N 
+
+   emit_sltiu(psp_a1, psp_a0, 1);
+   emit_ins(psp_at,psp_a1,_flag_Z, _flag_Z); //Z 
+
+   emit_sw(psp_at,RCPU,_flags);
+
+   return OPR_RESULT(OPR_CONTINUE, 1);
+}
+
+static OP_RESULT THUMB_OP_LSR_0(uint32_t pc, const u32 i)
+{
+   sync_r15(i, false, 0);
+
+   emit_lw(psp_at,RCPU,_flags); //load flag reg
+
+   emit_lw(psp_a0,RCPU,thumb_reg_pos_offset(3));
+
+   emit_ext(psp_a1,psp_a0,31,31);
+   emit_ins(psp_at,psp_a1,_flag_C, _flag_C); //C
+
+   emit_sw(psp_zero,RCPU,thumb_reg_pos_offset(0));
+
+   emit_ins(psp_zero,psp_at,_flag_N, _flag_N); //N 
+
+   emit_la(psp_a1,1);
+   emit_ins(psp_at,psp_a1,_flag_Z, _flag_Z); //Z 
+
+   emit_sw(psp_at,RCPU,_flags + 3);
+
+   return OPR_RESULT(OPR_CONTINUE, 1);
+}
+
+static OP_RESULT THUMB_OP_LSR(uint32_t pc, const u32 i)
+{
+   sync_r15(i, false, 0);
+
+   u32 v = (i>>6) & 0x1F;
+
+   emit_lw(psp_at,RCPU,_flags); //load flag reg
+
+   emit_lw(psp_a0,RCPU,thumb_reg_pos_offset(3));
+
+   emit_ext(psp_a1,psp_a0,v-1,v-1);
+   emit_ins(psp_at,psp_a1,_flag_C, _flag_C); //C 
+
+   emit_srl(psp_a0,psp_a0,v);
+   emit_sw(psp_a0,RCPU,thumb_reg_pos_offset(0));
+
+   emit_ext(psp_a1,psp_a0,31,31);
+   emit_ins(psp_at,psp_a1,_flag_N, _flag_N); //N 
+
+   emit_sltiu(psp_a1, psp_a0, 1);
+   emit_ins(psp_at,psp_a1,_flag_Z,_flag_Z); //Z 
+
+   emit_sw(psp_at,RCPU,_flags);
+
+   return OPR_RESULT(OPR_CONTINUE, 1);
+}
+
+
+static OP_RESULT THUMB_OP_MOV_IMM8(uint32_t pc, const u32 i)
+{
+   sync_r15(i, false, 0);
+
+   emit_lw(psp_at,RCPU,_flags);
+
+   emit_la(psp_a0, (i&0xFF));
+   emit_sw(psp_a0,RCPU,thumb_reg_pos_offset(8));
+   
+   emit_ext(psp_a1,psp_a0,31,31);
+   emit_ins(psp_at,psp_a1,_flag_N, _flag_N);
+
+   emit_sltiu(psp_a1, psp_a0, 1);
+   emit_ins(psp_at,psp_a1,_flag_Z, _flag_Z);
+
+   emit_sw(psp_at,RCPU,_flags);
+
+   return OPR_RESULT(OPR_CONTINUE, 1);
+}
+
+
+static OP_RESULT THUMB_OP_CMP_IMM8(uint32_t pc, const u32 i)
+{
+   return OPR_INTERPRET;
+
+   sync_r15(i, false, 0);
+
+   emit_lw(psp_at,RCPU,_flags);
+
+   emit_lw(psp_a0,RCPU,thumb_reg_pos_offset(8));
+   emit_la(psp_a1, (i&0xFF));
+
+   emit_subu(psp_a2,psp_a0,psp_a1);
+   
+   emit_ext(psp_a1,psp_a2,31,31);
+   emit_ins(psp_at,psp_a1,_flag_N, _flag_N);
+
+   emit_sltiu(psp_a1, psp_a2, 1);
+   emit_ins(psp_at,psp_a1,_flag_Z, _flag_Z);
+
+   emit_sltiu(psp_a1, psp_a0, (i&0xFF));
+   emit_ins(psp_at,psp_a1,_flag_C, _flag_C);
+
+   //Missing flag V code...
+
+   emit_sw(psp_at,RCPU,_flags);
+
+   return OPR_RESULT(OPR_CONTINUE, 1);
+}
+
+//-----------------------------------------------------------------------------
+//   AND
+//-----------------------------------------------------------------------------
+
+static OP_RESULT THUMB_OP_AND(uint32_t pc, const u32 i)
+{
+	emit_lw(psp_at,RCPU,_flags);
+
+   emit_lw(psp_a0,RCPU,thumb_reg_pos_offset(0));
+   emit_lw(psp_a1,RCPU,thumb_reg_pos_offset(3));
+   emit_and(psp_a0,psp_a0,psp_a1);
+   emit_sw(psp_a0,RCPU,thumb_reg_pos_offset(0));
+   
+   emit_ext(psp_a1,psp_a0,31,31);
+   emit_ins(psp_at,psp_a1,_flag_N, _flag_N);
+
+   emit_sltiu(psp_a1, psp_a0, 1);
+   emit_ins(psp_at,psp_a1,_flag_Z, _flag_Z);
+
+   emit_sw(psp_at,RCPU,_flags);
+
+	return OPR_RESULT(OPR_CONTINUE, 1);
+}
+
+//-----------------------------------------------------------------------------
+//   EOR
+//-----------------------------------------------------------------------------
+
+static OP_RESULT THUMB_OP_EOR(uint32_t pc, const u32 i)
+{
+	emit_lw(psp_at,RCPU,_flags);
+
+   emit_lw(psp_a0,RCPU,thumb_reg_pos_offset(0));
+   emit_lw(psp_a1,RCPU,thumb_reg_pos_offset(3));
+   emit_xor(psp_a0,psp_a0,psp_a1);
+   emit_sw(psp_a0,RCPU,thumb_reg_pos_offset(0));
+   
+   emit_ext(psp_a1,psp_a0,31,31);
+   emit_ins(psp_at,psp_a1,_flag_N, _flag_N);
+
+   emit_sltiu(psp_a1, psp_a0, 1);
+   emit_ins(psp_at,psp_a1,_flag_Z, _flag_Z);
+
+   emit_sw(psp_at,RCPU,_flags);
+
+	return OPR_RESULT(OPR_CONTINUE, 1);
+}
+
+//-----------------------------------------------------------------------------
+//   MVN
+//-----------------------------------------------------------------------------
+
+static OP_RESULT THUMB_OP_MVN(uint32_t pc, const u32 i)
+{
+	emit_lw(psp_at,RCPU,_flags);
+
+   emit_lw(psp_a0,RCPU,thumb_reg_pos_offset(3));
+   emit_not(psp_a0,psp_a0);
+   emit_sw(psp_a0,RCPU,thumb_reg_pos_offset(0));
+   
+   emit_ext(psp_a1,psp_a0,31,31);
+   emit_ins(psp_at,psp_a1,_flag_N, _flag_N);
+
+   emit_sltiu(psp_a1, psp_a0, 1);
+   emit_ins(psp_at,psp_a1,_flag_Z, _flag_Z);
+
+   emit_sw(psp_at,RCPU,_flags);
+
+	return OPR_RESULT(OPR_CONTINUE, 1);
 }
 
 static OP_RESULT THUMB_OP_ADDSUB_REGIMM(uint32_t pc, uint32_t opcode)
 {
    return OPR_INTERPRET;
-   /*const uint32_t rd = bit(opcode, 0, 3);
-   const uint32_t rs = bit(opcode, 3, 3);
-   const AG_ALU_OP op = bit(opcode, 9) ? SUBS : ADDS;
-   const bool arg_type = bit(opcode, 10);
-   const uint32_t arg = bit(opcode, 6, 3);
-
-   int32_t regs[3] = { rd | 0x10, rs, (!arg_type) ? arg : -1 };
-   regman->get(3, regs);
-
-   const reg_t nrd = regs[0];
-   const reg_t nrs = regs[1];
-
-   if (arg_type) // Immediate
-   {
-      block->alu_op(op, nrd, nrs, alu2::imm(arg));
-      mark_status_dirty();
-   }
-   else
-   {
-      block->alu_op(op, nrd, nrs, alu2::reg(regs[2]));
-      mark_status_dirty();
-   }
-
-   regman->mark_dirty(nrd);
-
-   return OPR_RESULT(OPR_CONTINUE, 1);*/
 }
 
 static OP_RESULT THUMB_OP_MCAS_IMM8(uint32_t pc, uint32_t opcode)
 {
    return OPR_INTERPRET;
-   /*const reg_t rd = bit(opcode, 8, 3);
-   const uint32_t op = bit(opcode, 11, 2);
-   const uint32_t imm = bit(opcode, 0, 8);
-
-   int32_t regs[1] = { rd };
-   regman->get(1, regs);
-   const reg_t nrd = regs[0];
-   
-   switch (op)
-   {
-      case 0: block->alu_op(MOVS, nrd, nrd, alu2::imm(imm)); break;
-      case 1: block->alu_op(CMP , nrd, nrd, alu2::imm(imm)); break;
-      case 2: block->alu_op(ADDS, nrd, nrd, alu2::imm(imm)); break;
-      case 3: block->alu_op(SUBS, nrd, nrd, alu2::imm(imm)); break;
-   }
-
-   mark_status_dirty();
-
-   if (op != 1) // Don't keep the result of a CMP instruction
-   {
-      regman->mark_dirty(nrd);
-   }
-
-   return OPR_RESULT(OPR_CONTINUE, 1);*/
 }
 
 static OP_RESULT THUMB_OP_ALU(uint32_t pc, uint32_t opcode)
 {
    return OPR_INTERPRET;
-   /*const uint32_t rd = bit(opcode, 0, 3);
-   const uint32_t rs = bit(opcode, 3, 3);
-   const uint32_t op = bit(opcode, 6, 4);
-   bool need_writeback = false;
-
-   if (op == 13) // TODO: The MULS is interpreted for now
-   {
-      return OPR_INTERPRET;
-   }
-
-   int32_t regs[2] = { rd, rs };
-   regman->get(2, regs);
-
-   const reg_t nrd = regs[0];
-   const reg_t nrs = regs[1];
-
-   switch (op)
-   {
-      case  0: block->ands(nrd, alu2::reg(nrs)); break;
-      case  1: block->eors(nrd, alu2::reg(nrs)); break;
-      case  5: block->adcs(nrd, alu2::reg(nrs)); break;
-      case  6: block->sbcs(nrd, alu2::reg(nrs)); break;
-      case  8: block->tst (nrd, alu2::reg(nrs)); break;
-      case 10: block->cmp (nrd, alu2::reg(nrs)); break;
-      case 11: block->cmn (nrd, alu2::reg(nrs)); break;
-      case 12: block->orrs(nrd, alu2::reg(nrs)); break;
-      case 14: block->bics(nrd, alu2::reg(nrs)); break;
-      case 15: block->mvns(nrd, alu2::reg(nrs)); break;
-
-      case  2: block->movs(nrd, alu2::reg_shift_reg(nrd, LSL, nrs)); break;
-      case  3: block->movs(nrd, alu2::reg_shift_reg(nrd, LSR, nrs)); break;
-      case  4: block->movs(nrd, alu2::reg_shift_reg(nrd, ASR, nrs)); break;
-      case  7: block->movs(nrd, alu2::reg_shift_reg(nrd, arm_gen::ROR, nrs)); break;
-
-      case  9: block->rsbs(nrd, nrs, alu2::imm(0)); break;
-   }
-
-   mark_status_dirty();
-
-   static const bool op_wb[16] = { 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 0, 0, 1, 0, 1, 1 };
-   if (op_wb[op])
-   {
-      regman->mark_dirty(nrd);
-   }
-
-   return OPR_RESULT(OPR_CONTINUE, 1);*/
 }
 
 static OP_RESULT THUMB_OP_SPE(uint32_t pc, uint32_t opcode)
 {
    return OPR_INTERPRET;
-   /*const uint32_t rd = bit(opcode, 0, 3) + (bit(opcode, 7) ? 8 : 0);
-   const uint32_t rs = bit(opcode, 3, 4);
-   const uint32_t op = bit(opcode, 8, 2);
-
-   if (rd == 0xF || rs == 0xF)
-   {
-      return OPR_INTERPRET;
-   }
-
-   int32_t regs[2] = { rd, rs };
-   regman->get(2, regs);
-
-   const reg_t nrd = regs[0];
-   const reg_t nrs = regs[1];
-
-   switch (op)
-   {
-      case 0: block->add(nrd, alu2::reg(nrs)); break;
-      case 1: block->cmp(nrd, alu2::reg(nrs)); break;
-      case 2: block->mov(nrd, alu2::reg(nrs)); break;
-   }
-
-   if (op != 1)
-   {
-      regman->mark_dirty(nrd);
-   }
-   else
-   {
-      mark_status_dirty();
-   }
-
-   return OPR_RESULT(OPR_CONTINUE, 1);*/
 }
 
-static OP_RESULT THUMB_OP_MEMORY_DELEGATE(uint32_t pc, uint32_t opcode, bool LOAD, uint32_t SIZE, uint32_t EXTEND, bool REG_OFFSET)
+static OP_RESULT THUMB_OP_MOV_SPE(uint32_t pc, const u32 i)
 {
-   return OPR_INTERPRET;
-   /*const uint32_t rd = bit(opcode, 0, 3);
-   const uint32_t rb = bit(opcode, 3, 3);
-   const uint32_t ro = bit(opcode, 6, 3);
-   const uint32_t off = bit(opcode, 6, 5);
+   sync_r15(i, false, 0);
 
-   int32_t regs[3] = { rd | (LOAD ? 0x10 : 0), rb, REG_OFFSET ? ro : -1};
-   regman->get(3, regs);
+	u32 Rd = _REG_NUM(i, 0) | ((i>>4)&8);
 
-   const reg_t dest = regs[0];
-   const reg_t base = regs[1];
+	//cpu->R[Rd] = cpu->R[REG_POS(i, 3)];
+   emit_lw(psp_a0,RCPU,reg_pos_offset(3));
+	emit_sw(psp_a0,RCPU,reg_offset(Rd));
 
-   // Calc EA
-
-   if (REG_OFFSET)
-   {
-      const reg_t offset = regs[2];
-      block->mov(0, alu2::reg(base));
-      block->add(0, alu2::reg(offset));
-   }
-   else
-   {
-      block->add(0, base, alu2::imm(off << SIZE));
-   }
-
-   // Load access function
-   block->load_constant(2, mem_funcs[(SIZE << 2) + (LOAD ? 0 : 2) + block_procnum]);
-
-   if (!LOAD)
-   {
-      block->mov(1, alu2::reg(dest));
-   }
-
-   call(2);
-
-   if (LOAD)
-   {
-      if (EXTEND)
-      {
-         if (SIZE == 0)
-         {
-            block->sxtb(dest, 0);
-         }
-         else
-         {
-            block->sxth(dest, 0);
-         }
-      }
-      else
-      {
-         block->mov(dest, alu2::reg(0));
-      }
-
-      regman->mark_dirty(dest);
-   }
-
-   // TODO
-   return OPR_RESULT(OPR_CONTINUE, 3);*/
+	if(Rd == 15)
+	{
+		emit_sw(psp_a0,RCPU,_next_instr);
+      return OPR_RESULT(OPR_CONTINUE, 3);
+	}
+	
+	return OPR_RESULT(OPR_CONTINUE, 1);
 }
+
+static OP_RESULT THUMB_OP_ADD_SPE(uint32_t pc, const u32 i){
+   sync_r15(i, false, 0);
+
+   u32 Rd = _REG_NUM(i, 0) | ((i>>4)&8);
+
+   emit_lw(psp_a0,RCPU,reg_offset(Rd));
+   emit_lw(psp_a1,RCPU,reg_pos_offset(3));
+   emit_addu(psp_a0,psp_a0,psp_a1);
+   emit_sw(psp_a0,RCPU,reg_offset(Rd));
+
+   if(Rd==15)
+		emit_sw(psp_a0,RCPU,_next_instr);
+
+   return OPR_RESULT(OPR_CONTINUE, 1);
+}
+
+/*
+static OP_RESULT THUMB_OP_CMP_SPE(uint32_t pc, const u32 i){
+   sync_r15(i, false, 0);
+
+   u32 Rd = _REG_NUM(i, 0) | ((i>>4)&8);
+
+   emit_lw(psp_a0,RCPU,reg_offset(Rd));
+   emit_lw(psp_a1,RCPU,reg_pos_offset(3));
+   emit_addu(psp_a0,psp_a0,psp_a1);
+   emit_sw(psp_a0,RCPU,reg_offset(Rd));
+
+   if(Rd==15)
+		emit_sw(psp_a0,RCPU,_next_instr);
+
+   return OPR_RESULT(OPR_CONTINUE, 1);
+}*/
+
 
 // SIZE: 0=8, 1=16, 2=32
 template <bool LOAD, uint32_t SIZE, uint32_t EXTEND, bool REG_OFFSET>
 static OP_RESULT THUMB_OP_MEMORY(uint32_t pc, uint32_t opcode)
 {
-   return THUMB_OP_MEMORY_DELEGATE(pc, opcode, LOAD, SIZE, EXTEND, REG_OFFSET);
+   return OPR_INTERPRET;
 }
 
 static OP_RESULT THUMB_OP_LDR_PCREL(uint32_t pc, uint32_t opcode)
 {
    return OPR_INTERPRET;
-   /*const uint32_t offset = bit(opcode, 0, 8);
-   const reg_t rd = bit(opcode, 8, 3);
-
-   int32_t regs[1] = { rd | 0x10 };
-   regman->get(1, regs);
-
-   const reg_t dest = regs[0];
-
-   block->load_constant(0, ((pc + 4) & ~2) + (offset << 2));
-   block->load_constant(2, mem_funcs[8 + block_procnum]);
-   call(2);
-   block->mov(dest, alu2::reg(0));
-
-   regman->mark_dirty(dest);
-   return OPR_RESULT(OPR_CONTINUE, 3);*/
 }
 
 static OP_RESULT THUMB_OP_STR_SPREL(uint32_t pc, uint32_t opcode)
 {
    return OPR_INTERPRET;
-   /*const uint32_t offset = bit(opcode, 0, 8);
-   const reg_t rd = bit(opcode, 8, 3);
-
-   int32_t regs[2] = { rd, 13 };
-   regman->get(2, regs);
-
-   const reg_t src = regs[0];
-   const reg_t base = regs[1];
-
-   block->add(0, base, alu2::imm_rol(offset, 2));
-   block->mov(1, alu2::reg(src));
-   block->load_constant(2, mem_funcs[10 + block_procnum]);
-   call(2);
-
-   return OPR_RESULT(OPR_CONTINUE, 3);*/
 }
 
 static OP_RESULT THUMB_OP_LDR_SPREL(uint32_t pc, uint32_t opcode)
 {
    return OPR_INTERPRET;
-   /*const uint32_t offset = bit(opcode, 0, 8);
-   const reg_t rd = bit(opcode, 8, 3);
-
-   int32_t regs[2] = { rd | 0x10, 13 };
-   regman->get(2, regs);
-
-   const reg_t dest = regs[0];
-   const reg_t base = regs[1];
-
-   block->add(0, base, alu2::imm_rol(offset, 2));
-   block->load_constant(2, mem_funcs[8 + block_procnum]);
-   call(2);
-   block->mov(dest, alu2::reg(0));
-
-   regman->mark_dirty(dest);
-   return OPR_RESULT(OPR_CONTINUE, 3);*/
 }
 
 static OP_RESULT THUMB_OP_B_COND(uint32_t pc, uint32_t opcode)
 {
    return OPR_INTERPRET;
-   /*const AG_COND cond = (AG_COND)bit(opcode, 8, 4);
-
-   block->load_constant(0, pc + 2);
-   block->load_constant(0, (pc + 4) + ((u32)((s8)(opcode&0xFF))<<1), cond);
-   block->str(0, RCPU, mem2::imm(offsetof(armcpu_t, instruct_adr)));
-
-   block->add(RCYC, alu2::imm(2), cond);
-
-   return OPR_RESULT(OPR_BRANCHED, 1);*/
 }
 
-static OP_RESULT THUMB_OP_B_UNCOND(uint32_t pc, uint32_t opcode)
+#define SIGNEEXT_IMM11(i)	(((i)&0x7FF) | (BIT10(i) * 0xFFFFF800))
+#define SIGNEXTEND_11(i) (((s32)i<<21)>>21)
+
+static OP_RESULT THUMB_OP_B_UNCOND(uint32_t pc, const u32 i)
 {
    return OPR_INTERPRET;
-   int32_t offs = (opcode & 0x7FF) | (bit(opcode, 10) ? 0xFFFFF800 : 0);
-   int32_t val =  pc + 4 + (offs << 1);
 
-   printf("UN\n");
-   emit_lui(psp_a0,val>>16);
-   emit_ori(psp_a0,psp_a0,val&0xffff);
+   u32 dst = (SIGNEXTEND_11(i)<<1);
+   //sync_r15(i, false, 0);
 
-   emit_sw(psp_a0, RCPU, instrAdr_offset);
+   emit_lui(psp_a1,dst>>16);
+   emit_ori(psp_a1,psp_a1,dst&0xFFFF);
 
-   return OPR_RESULT(OPR_BRANCHED, 3);
+   emit_lw(psp_a0,RCPU,_R15);
+   emit_addu(psp_a0,psp_a0,psp_a1);
+
+   emit_sw(psp_a0,RCPU,_R15);
+   emit_sw(psp_a0,RCPU,_next_instr);
+
+   return OPR_RESULT(OPR_CONTINUE, 1);
 }
 
-static OP_RESULT THUMB_OP_ADJUST_SP(uint32_t pc, uint32_t opcode)
+static OP_RESULT THUMB_OP_ADJUST_P_SP(uint32_t pc, const u32 i)
 {
-   return OPR_INTERPRET;
-   /*const uint32_t offs = bit(opcode, 0, 7);
+   sync_r15(i, false, 0);
 
-   int32_t regs[1] = { 13 };
-   regman->get(1, regs);
+   emit_lw(psp_a0,RCPU,reg_offset(13));
+   emit_addiu(psp_a0,psp_a0,((i&0x7F)<<2));
+   emit_sw(psp_a0,RCPU,reg_offset(13));
 
-   const reg_t sp = regs[0];
-
-   if (bit(opcode, 7)) block->sub(sp, alu2::imm_rol(offs, 2));
-   else                block->add(sp, alu2::imm_rol(offs, 2));
-
-   regman->mark_dirty(sp);
-
-   return OPR_RESULT(OPR_CONTINUE, 1);*/
+   return OPR_RESULT(OPR_CONTINUE, 1);
 }
 
-static OP_RESULT THUMB_OP_ADD_2PC(uint32_t pc, uint32_t opcode)
+static OP_RESULT THUMB_OP_ADJUST_M_SP(uint32_t pc, const u32 i)
 {
-   return OPR_INTERPRET;
-   /*const uint32_t offset = bit(opcode, 0, 8);
-   const reg_t rd = bit(opcode, 8, 3);
+   sync_r15(i, false, 0);
 
-   int32_t regs[1] = { rd | 0x10 };
-   regman->get(1, regs);
+   emit_lw(psp_a0,RCPU,reg_offset(13));
+   emit_subiu(psp_a0,psp_a0,((i&0x7F)<<2));
+   emit_sw(psp_a0,RCPU,reg_offset(13));
+   
+   return OPR_RESULT(OPR_CONTINUE, 1);
+}
 
-   const reg_t dest = regs[0];
+static OP_RESULT THUMB_OP_ADD_2PC(uint32_t pc, const u32 i)
+{
+   sync_r15(i, false, 0);
 
-   block->load_constant(dest, ((pc + 4) & 0xFFFFFFFC) + (offset << 2));
-   regman->mark_dirty(dest);
+   u32 imm = ((i&0xFF)<<2);
 
-   return OPR_RESULT(OPR_CONTINUE, 1);*/
+   emit_lw(psp_a1, RCPU, _R15);
+
+   emit_addiu(psp_a1, psp_a1, imm);
+
+   emit_sw(psp_a1, RCPU, thumb_reg_pos_offset(8));
+
+	//c.mov(reg_pos_thumb(8), (bb_r15 & 0xFFFFFFFC) + imm);
+
+   return OPR_RESULT(OPR_CONTINUE, 1);
 }
 
 static OP_RESULT THUMB_OP_ADD_2SP(uint32_t pc, uint32_t opcode)
 {
    return OPR_INTERPRET;
-   /*const uint32_t offset = bit(opcode, 0, 8);
-   const reg_t rd = bit(opcode, 8, 3);
-
-   int32_t regs[2] = { 13, rd | 0x10 };
-   regman->get(2, regs);
-
-   const reg_t sp = regs[0];
-   const reg_t dest = regs[1];
-
-   block->add(dest, sp, alu2::imm_rol(offset, 2));
-   regman->mark_dirty(dest);
-
-   return OPR_RESULT(OPR_CONTINUE, 1);*/
 }
 
 static OP_RESULT THUMB_OP_BX_BLX_THUMB(uint32_t pc, uint32_t opcode)
 {
    return OPR_INTERPRET;
-   /*const reg_t rm = bit(opcode, 3, 4);
-   const bool link = bit(opcode, 7);
-
-   if (rm == 15)
-      return OPR_INTERPRET;
-
-   block->load_constant(0, pc + 4);
-
-   int32_t regs[2] = { link ? 14 : -1, (rm != 15) ? (int32_t)rm : -1 };
-   regman->get(2, regs);
-
-   if (link)
-   {
-      const reg_t lr = regs[0];
-      block->sub(lr, 0, alu2::imm(1));
-      regman->mark_dirty(lr);
-   }
-
-   reg_t target = regs[1];
-
-   change_mode_reg(target, 2, 3);
-   block->bic(0, target, alu2::imm(1));
-   block->str(0, RCPU, mem2::imm(offsetof(armcpu_t, instruct_adr)));
-
-   return OPR_RESULT(OPR_BRANCHED, 3);*/
 }
 
-#if 1
+static OP_RESULT THUMB_OP_BL_10(uint32_t pc, const u32 i)
+{   
+   return OPR_INTERPRET;
+   
+   u32 dst = (SIGNEXTEND_11(i)<<12);
+
+   emit_lui(psp_a1,dst>>16);
+   emit_ori(psp_a1,psp_a1,dst&0xFFFF);
+   emit_lw(psp_a0, RCPU, _R15);
+   
+   emit_addu(psp_a0, psp_a0, psp_a1);
+
+   emit_sw(psp_a0, RCPU, reg_offset(14));
+
+	return OPR_RESULT(OPR_CONTINUE, 1);
+}
+
 #define THUMB_OP_BL_LONG 0
-#else
-static OP_RESULT THUMB_OP_BL_LONG(uint32_t pc, uint32_t opcode)
-{
-   static const uint32_t op = bit(opcode, 11, 5);
-   int32_t offset = bit(opcode, 0, 11);
-   reg_t lr = regman->get(14, op == 0x1E);
-   if (op == 0x1E)
-   {
-      offset |= (offset & 0x400) ? 0xFFFFF800 : 0;
-      block->load_constant(lr, (pc + 4) + (offset << 12));
-   }
-   else
-   {
-      block->load_constant(0, offset << 1);
-      block->add(0, lr, alu2::reg(0));
-      block->str(0, RCPU, mem2::imm(offsetof(armcpu_t, instruct_adr)));
-      block->load_constant(lr, pc + 3);
-      if (op != 0x1F)
-      {
-         change_mode(false);
-      }
-   }
-   regman->mark_dirty(lr);
-   if (op == 0x1E)
-   {
-      return OPR_RESULT(OPR_CONTINUE, 1);
-   }
-   else
-   {
-      return OPR_RESULT(OPR_BRANCHED, (op == 0x1F) ? 3 : 4);
-   }
-}
-#endif
 
 #define THUMB_OP_INTERPRET       0
 #define THUMB_OP_UND_THUMB       THUMB_OP_INTERPRET
 
-#define THUMB_OP_LSL             THUMB_OP_SHIFT
-#define THUMB_OP_LSL_0           THUMB_OP_SHIFT
-#define THUMB_OP_LSR             THUMB_OP_SHIFT
-#define THUMB_OP_LSR_0           THUMB_OP_SHIFT
 #define THUMB_OP_ASR             THUMB_OP_SHIFT
 #define THUMB_OP_ASR_0           THUMB_OP_SHIFT
 
@@ -1245,13 +1247,13 @@ static OP_RESULT THUMB_OP_BL_LONG(uint32_t pc, uint32_t opcode)
 #define THUMB_OP_ADD_IMM3        THUMB_OP_ADDSUB_REGIMM
 #define THUMB_OP_SUB_IMM3        THUMB_OP_ADDSUB_REGIMM
 
-#define THUMB_OP_MOV_IMM8        THUMB_OP_MCAS_IMM8
+//#define THUMB_OP_MOV_IMM8        THUMB_OP_MCAS_IMM8
 #define THUMB_OP_CMP_IMM8        THUMB_OP_MCAS_IMM8
 #define THUMB_OP_ADD_IMM8        THUMB_OP_MCAS_IMM8
 #define THUMB_OP_SUB_IMM8        THUMB_OP_MCAS_IMM8
 
-#define THUMB_OP_AND             THUMB_OP_ALU
-#define THUMB_OP_EOR             THUMB_OP_ALU
+//#define THUMB_OP_AND             THUMB_OP_ALU
+//#define THUMB_OP_EOR             THUMB_OP_ALU
 #define THUMB_OP_LSL_REG         THUMB_OP_ALU
 #define THUMB_OP_LSR_REG         THUMB_OP_ALU
 #define THUMB_OP_ASR_REG         THUMB_OP_ALU
@@ -1265,14 +1267,11 @@ static OP_RESULT THUMB_OP_BL_LONG(uint32_t pc, uint32_t opcode)
 #define THUMB_OP_ORR             THUMB_OP_ALU
 #define THUMB_OP_MUL_REG         THUMB_OP_INTERPRET
 #define THUMB_OP_BIC             THUMB_OP_ALU
-#define THUMB_OP_MVN             THUMB_OP_ALU
+//#define THUMB_OP_MVN             THUMB_OP_ALU
 
-#define THUMB_OP_ADD_SPE         THUMB_OP_SPE
-#define THUMB_OP_CMP_SPE         THUMB_OP_SPE
-#define THUMB_OP_MOV_SPE         THUMB_OP_SPE
-
-#define THUMB_OP_ADJUST_P_SP     THUMB_OP_ADJUST_SP
-#define THUMB_OP_ADJUST_M_SP     THUMB_OP_ADJUST_SP
+//#define THUMB_OP_ADD_SPE         THUMB_OP_SPE
+#define THUMB_OP_CMP_SPE           0
+//#define THUMB_OP_MOV_SPE         THUMB_OP_SPE
 
 #define THUMB_OP_LDRB_REG_OFF    THUMB_OP_MEMORY<true , 0, 0, true>
 #define THUMB_OP_LDRH_REG_OFF    THUMB_OP_MEMORY<true , 1, 0, true>
@@ -1295,7 +1294,7 @@ static OP_RESULT THUMB_OP_BL_LONG(uint32_t pc, uint32_t opcode)
 
 #define THUMB_OP_BX_THUMB        THUMB_OP_BX_BLX_THUMB
 #define THUMB_OP_BLX_THUMB       THUMB_OP_BX_BLX_THUMB
-#define THUMB_OP_BL_10           THUMB_OP_BL_LONG
+//#define THUMB_OP_BL_10           THUMB_OP_BL_LONG
 #define THUMB_OP_BL_11           THUMB_OP_BL_LONG
 #define THUMB_OP_BLX             THUMB_OP_BL_LONG
 
@@ -1368,12 +1367,6 @@ static const ArmOpCompiled op_decode[2][2] = { OP_DECODE<0,0>, OP_DECODE<0,1>, O
 //   Compiler
 //-----------------------------------------------------------------------------
 
-void __debugbreak() { fflush(stdout); *(int*)0=1;}
-#define dbgbreak {__debugbreak(); for(;;);}
-#define _T(x) x
-#define die(reason) { printf("Fatal error : %d\n in %s -> %s : %d \n",_T(reason),_T(__FUNCTION__),_T(__FILE__),__LINE__); dbgbreak;}
-
-
 static bool instr_is_conditional(u32 opcode)
 {
 	if(thumb) return false;
@@ -1401,11 +1394,16 @@ static bool instr_uses_r15(u32 opcode, const bool thumb)
 static void emit_prefetch(const u32 pc){
    const u8 isize = thumb ? 2 : 4;
 
+   if (skip_prefeth) {
+      skip_prefeth = false;
+      return;
+   }
+
    emit_addiu(psp_at, psp_gp, isize);
-   emit_sw(psp_at, psp_k0, NextInstr_offset);
+   emit_sw(psp_at, psp_k0, _next_instr);
 
    emit_addiu(psp_at, psp_at, isize);
-   emit_sw(psp_at, psp_k0, reg_offset(15));
+   emit_sw(psp_at, psp_k0, _R15);
 }
 
 static bool instr_does_prefetch(u32 opcode)
@@ -1421,12 +1419,17 @@ static bool instr_does_prefetch(u32 opcode)
 
 static void sync_r15(u32 opcode, bool is_last, bool force)
 {
+   if (skip_prefeth) {
+      skip_prefeth = false;
+      return;
+   }
+
    if(instr_does_prefetch(opcode))
 	{
 		if(force)
 		{
-         emit_lw(psp_at, RCPU, NextInstr_offset);  //pc + isize, psp_k0, nextinstr offset
-         emit_sw(psp_at, RCPU, instrAdr_offset);  //pc + isize, psp_k0, nextinstr offset
+         emit_lw(psp_at, RCPU, _next_instr);  //pc + isize, psp_k0, nextinstr offset
+         emit_sw(psp_at, RCPU, _instr_adr);  //pc + isize, psp_k0, nextinstr offset
 			///c.mov(cpu_ptr(instruct_adr), bb_next_instruction);
 		}
 	}
@@ -1435,25 +1438,65 @@ static void sync_r15(u32 opcode, bool is_last, bool force)
 
       if(instr_attributes(opcode) & JIT_BYPASS)
       {
-         emit_sw(psp_gp, RCPU, instrAdr_offset);   //pc, psp_k0, nextinstr offset
+         emit_sw(psp_gp, RCPU, _instr_adr);   //pc, psp_k0, nextinstr offset
          //c.mov(cpu_ptr(instruct_adr), bb_adr);
       }
       if(instr_uses_r15(opcode, thumb))
       {
          const u8 isize = thumb ? 4 : 8;
          emit_addiu(psp_at, psp_gp,isize);
-         emit_sw(psp_at, RCPU, reg_offset(15));
+         emit_sw(psp_at, RCPU, _R15);
          //c.mov(reg_ptr(15), bb_r15);
       }
 		if(force || (instr_attributes(opcode) & JIT_BYPASS) || (instr_attributes(opcode) & BRANCH_SWI) || (is_last && !instr_is_branch(opcode)))
 		{
          const u8 isize = thumb ? 2 : 4;
          emit_addiu(psp_at, psp_gp,isize);
-         emit_sw(psp_at, RCPU, NextInstr_offset);
+         emit_sw(psp_at, RCPU, _next_instr);
 			//c.mov(cpu_ptr(next_instruction), bb_next_instruction);
 		}
 
 	}
+}
+
+static void emit_branch(int cond, u32 label_to)
+{
+   //I'm not sure if it works....
+
+	//JIT_COMMENT("emit_branch cond %02X", cond);
+	/*static const u8 cond_bit[] = {0x40, 0x40, 0x20, 0x20, 0x80, 0x80, 0x10, 0x10};
+	if(cond < 8)
+	{
+      emit_lw(psp_at,psp_k0,flags_ptr);
+      emit_and(psp_a1,psp_at, cond_bit[cond]);
+      (cond & 1)?emit_beq(psp_a1,psp_zero,label_to + (3*4)):emit_bnq(psp_a1,psp_zero,label_to + (3*4)); 
+
+		/*c.test(flags_ptr, cond_bit[cond]);
+		(cond & 1)?c.jnz(to):c.jz(to);*/
+	//}
+	/*else
+	{
+      emit_lw(psp_at,psp_k0,flags_ptr);
+      emit_lw(psp_a1,psp_k0,offsetof(armcpu_t,cond_table) + cond);
+
+      emit_andi(psp_at,psp_at,0xF0);
+
+      emit_addu(psp_at,psp_at,psp_a1);
+
+      emit_bnq(psp_at,psp_zero,label_to + (3*4)); 
+
+		/*GpVar x = c.newGpVar(kX86VarTypeGpz);
+		c.movzx(x, flags_ptr);
+		c.and_(x, 0xF0);
+#if defined(_M_X64) || defined(__x86_64__)
+		c.add(x, offsetof(armcpu_t,cond_table) + cond);
+		c.test(byte_ptr(bb_cpu, x), 1);
+#else
+		c.test(byte_ptr_abs((void*)(arm_cond_table + cond), x, kScaleNone), 1);
+#endif
+		c.unuse(x);
+		c.jz(to);*/
+	//}
 }
 
 
@@ -1519,7 +1562,21 @@ static u32 compile_basicblock()
       emit_ori(psp_gp, psp_gp, pc &0xffff);
 
       if (thumb){
-         //sync_r15(pc, opcode, has_ended, 1);    
+         //sync_r15(pc, opcode, has_ended, 1);   
+
+         if (my_config.FULLDynarec){
+            ArmOpCompiler fc = thumb_instruction_compilers[opcode>>6];
+
+            if (fc){ 
+               int result = fc(pc,opcode);
+
+               if (result != OPR_INTERPRET){
+                  interpreted = false;
+                  interpreted_cycles += op_decode[PROCNUM][true]() + OPR_RESULT_CYCLES(result);
+                  continue;
+               }
+            }
+         }
          
          _includeNop = false;
 
@@ -1542,7 +1599,7 @@ static u32 compile_basicblock()
 
                if (result != OPR_INTERPRET){
                   interpreted = false;
-                  interpreted_cycles += op_decode[PROCNUM][thumb]() + OPR_RESULT_CYCLES(result);
+                  interpreted_cycles += op_decode[PROCNUM][false]() + OPR_RESULT_CYCLES(result);
                   continue;
                }
             }
@@ -1573,8 +1630,8 @@ static u32 compile_basicblock()
 
    if(interpreted || !instr_does_prefetch(opcode))
 	{
-      emit_lw(psp_at, RCPU, NextInstr_offset);
-      emit_sw(psp_at, RCPU, instrAdr_offset);
+      emit_lw(psp_at, RCPU, _next_instr);
+      emit_sw(psp_at, RCPU, _instr_adr);
    }
 
    emit_mpop(3,
@@ -1594,7 +1651,7 @@ static u32 compile_basicblock()
 
 template<int PROCNUM> u32 arm_jit_compile()
 {
-   u32 adr = ARMPROC.instruct_adr;
+   /*u32 adr = ARMPROC.instruct_adr;
    u32 mask_adr = (adr & 0x07FFFFFE) >> 4;
 
    if(((recompile_counts[mask_adr >> 1] >> 4*(mask_adr & 1)) & 0xF) > 8)
@@ -1604,7 +1661,7 @@ template<int PROCNUM> u32 arm_jit_compile()
 		return f();
    }
    
-   recompile_counts[mask_adr >> 1] += 1 << 4*(mask_adr & 1);
+   recompile_counts[mask_adr >> 1] += 1 << 4*(mask_adr & 1);*/
 
    if ((CODE_SIZE - LastAddr) < 16 * 1024){
       printf("Dynarec code reset\n");
@@ -1640,7 +1697,7 @@ void arm_jit_reset(bool enable, bool suppress_msg)
          JITFREE(JIT.ARM7_WRAM);
       #undef JITFREE
 
-      memset(recompile_counts, 0, sizeof(recompile_counts));
+      //memset(recompile_counts, 0, sizeof(recompile_counts));
       init_jit_mem();
 
      memset(CodeCache, 0, CODE_SIZE);
