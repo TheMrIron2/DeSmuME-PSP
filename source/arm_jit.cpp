@@ -151,6 +151,7 @@ static void init_jit_mem()
 
 static bool thumb = false;
 static bool skip_prefeth = false;
+static uint32_t pc = 0;
 
 #define CODE_SIZE   (4*1024*1024)
 
@@ -217,7 +218,7 @@ static void emit_mpop(u32 n, ...)
     emit_addiu(psp_sp, psp_sp, u16(+4*n));
 }
 
-static void emit_prefetch(const u32 pc);
+static void emit_prefetch();
 static void sync_r15(u32 opcode, bool is_last, bool force);
 
 static u32 instr_attributes(u32 opcode)
@@ -263,6 +264,8 @@ typedef OP_RESULT (*ArmOpCompiler)(uint32_t pc, uint32_t opcode);
 static uint32_t block_procnum;
 
 #define _ARMPROC (block_procnum ? NDS_ARM7 : NDS_ARM9)
+
+#define _cond_table(x) arm_cond_table[x]
 
 #define reg_offset(x) ((u32)(((u8*)&_ARMPROC.R[x]) - ((u8*)&_ARMPROC)))
 #define reg_pos_offset(x) ((u32)(((u8*)&_ARMPROC.R[REG_POS(i,x)]) - ((u8*)&_ARMPROC)))
@@ -1391,7 +1394,7 @@ static bool instr_uses_r15(u32 opcode, const bool thumb)
 		    || (x & JIT_BYPASS);
 }
 
-static void emit_prefetch(const u32 pc){
+static void emit_prefetch(){
    const u8 isize = thumb ? 2 : 4;
 
    if (skip_prefeth) {
@@ -1459,44 +1462,57 @@ static void sync_r15(u32 opcode, bool is_last, bool force)
 	}
 }
 
-static void emit_branch(int cond, u32 label_to)
+static void emit_branch(int cond,u32 opcode, u32 sz,bool EndBlock)
 {
-   //I'm not sure if it works....
+	static const u8 cond_bit[] = {0x40, 0x40, 0x20, 0x20, 0x80, 0x80, 0x10, 0x10};
 
-	//JIT_COMMENT("emit_branch cond %02X", cond);
-	/*static const u8 cond_bit[] = {0x40, 0x40, 0x20, 0x20, 0x80, 0x80, 0x10, 0x10};
+   if (EndBlock) sync_r15(opcode, 1, 1);
+
 	if(cond < 8)
 	{
-      emit_lw(psp_at,psp_k0,flags_ptr);
-      emit_and(psp_a1,psp_at, cond_bit[cond]);
-      (cond & 1)?emit_beq(psp_a1,psp_zero,label_to + (3*4)):emit_bnq(psp_a1,psp_zero,label_to + (3*4)); 
+      u32 label = ((u32)emit_GetCCPtr()) + 32;
 
-		/*c.test(flags_ptr, cond_bit[cond]);
-		(cond & 1)?c.jnz(to):c.jz(to);*/
-	//}
-	/*else
-	{
-      emit_lw(psp_at,psp_k0,flags_ptr);
-      emit_lw(psp_a1,psp_k0,offsetof(armcpu_t,cond_table) + cond);
+      emit_lbu(psp_at,psp_k0,_flags+3);
 
-      emit_andi(psp_at,psp_at,0xF0);
+      emit_andi(psp_a1,psp_at, cond_bit[cond]);
 
-      emit_addu(psp_at,psp_at,psp_a1);
+      emit_lui(psp_a2,label>>16);
+      emit_ori(psp_a2,psp_a2,label&0xFFFF);
 
-      emit_bnq(psp_at,psp_zero,label_to + (3*4)); 
+      emit_addiu(psp_at,psp_a2,sz);
 
-		/*GpVar x = c.newGpVar(kX86VarTypeGpz);
-		c.movzx(x, flags_ptr);
-		c.and_(x, 0xF0);
-#if defined(_M_X64) || defined(__x86_64__)
-		c.add(x, offsetof(armcpu_t,cond_table) + cond);
-		c.test(byte_ptr(bb_cpu, x), 1);
-#else
-		c.test(byte_ptr_abs((void*)(arm_cond_table + cond), x, kScaleNone), 1);
-#endif
-		c.unuse(x);
-		c.jz(to);*/
-	//}
+      if(cond & 1)
+         emit_movn(psp_a2,psp_at,psp_a1);
+      else
+         emit_movz(psp_a2,psp_at,psp_a1);
+
+      emit_jr(psp_a2);
+      emit_nop();
+
+      return;
+	}
+
+   u32 label = ((u32)emit_GetCCPtr()) + (13 * 4);
+
+   emit_lui(psp_a2,label>>16);
+   emit_ori(psp_a2,psp_a2,label&0xFFFF);
+
+   emit_lbu(psp_at,psp_k0,_flags + 3);
+   emit_andi(psp_at,psp_at,0xF0);
+
+   emit_lui(psp_a3, ((u32)&_cond_table(cond))>>16);
+   emit_ori(psp_a3, psp_a3,((u32)&_cond_table(cond))&0xFFFF);
+   
+   emit_addu(psp_a3,psp_a3, psp_at);
+   emit_lbu(psp_a1,psp_a3, 0);
+
+   emit_andi(psp_a1, psp_a1, 1);
+   emit_addiu(psp_at,psp_a2,sz);
+
+   emit_movz(psp_a2,psp_at,psp_a1);
+
+   emit_jr(psp_a2);
+   emit_nop();
 }
 
 
@@ -1513,8 +1529,6 @@ static u32 compile_basicblock()
 
    const uint32_t imask = thumb ? 0xFFFFFFFE : 0xFFFFFFFC;
 
-   uint32_t pc = base;
-
    bool first_op = true;
 
    uint32_t opcode = 0;
@@ -1524,6 +1538,8 @@ static u32 compile_basicblock()
 
    bool _includeNop = false;
    bool interpreted = false;
+
+   pc = base;
 
    //printf("%x THUMB: %d  %x\n",(u32)code_ptr, thumb, base);
 
@@ -1562,7 +1578,6 @@ static u32 compile_basicblock()
       emit_ori(psp_gp, psp_gp, pc &0xffff);
 
       if (thumb){
-         //sync_r15(pc, opcode, has_ended, 1);   
 
          if (my_config.FULLDynarec){
             ArmOpCompiler fc = thumb_instruction_compilers[opcode>>6];
@@ -1580,7 +1595,7 @@ static u32 compile_basicblock()
          
          _includeNop = false;
 
-         emit_prefetch(pc);  
+         emit_prefetch();  
 
          emit_jal(thumb_instructions_set[PROCNUM][opcode>>6]);
 
@@ -1588,9 +1603,20 @@ static u32 compile_basicblock()
          else if (opcode != 0) emit_la(psp_a0,opcode&0xFFFF); 
          else _includeNop = true;
       }
-      else 
-      if (!instr_is_conditional(opcode)){
+      else{ 
 
+         const bool conditional = instr_is_conditional(opcode);
+
+         _includeNop = true;
+
+         if (conditional){
+
+            u32 skip_sz     =  20;                        //Jump + Prefetch
+                skip_sz    +=  ((opcode == 0) ? 4 : 8);   // Opcode
+
+            emit_branch(CONDITION(opcode),opcode,skip_sz,has_ended);
+
+         }else
          if (my_config.FULLDynarec){
             ArmOpCompiler fc = arm_instruction_compilers[INSTRUCTION_INDEX(opcode)];
 
@@ -1599,28 +1625,22 @@ static u32 compile_basicblock()
 
                if (result != OPR_INTERPRET){
                   interpreted = false;
+                  _includeNop = false;
                   interpreted_cycles += op_decode[PROCNUM][false]() + OPR_RESULT_CYCLES(result);
                   continue;
                }
             }
          }
 
-         _includeNop = true;
-
-         if (opcode == 0 && i == 0) emit_move(psp_a0,psp_zero);
+         if (opcode == 0) emit_move(psp_a0,psp_zero);
          else{
             emit_lui(psp_at,opcode>>16);
             emit_ori(psp_a0,psp_at,opcode&0xFFFF);
          }
 
-         emit_prefetch(pc);
+         emit_prefetch();
 
          emit_jal(arm_instructions_set[PROCNUM][INSTRUCTION_INDEX(opcode)]);
-      }
-      else{
-         _includeNop = false;
-         emit_jal(DYNAREC_EXEC<PROCNUM>);
-         emit_move(psp_a0,psp_gp);
       }
 
       interpreted_cycles += op_decode[PROCNUM][thumb]();
