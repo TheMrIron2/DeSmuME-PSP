@@ -281,6 +281,7 @@ static uint32_t block_procnum;
 #define _flag_N 31
 #define _flag_Z 30
 #define _flag_C 29
+#define _flag_V 28
 
 
 static void emit_Variableprefetch(const u32 pc,const u8 t){
@@ -826,9 +827,30 @@ static const ArmOpCompiler arm_instruction_compilers[4096] = {
 // THUMB
 ////////
 
-static OP_RESULT THUMB_OP_SHIFT(uint32_t pc, uint32_t opcode)
+static OP_RESULT THUMB_OP_ASR(uint32_t pc, const u32 i)
 {
-   return OPR_INTERPRET;
+   sync_r15(i, false, 0);
+
+   u32 v = (i>>6) & 0x1F;
+
+   emit_lw(psp_at,RCPU,_flags); //load flag reg
+
+   emit_lw(psp_a0,RCPU,thumb_reg_pos_offset(3));
+   emit_ext(psp_a1,psp_a0,v-1,v-1);
+   emit_ins(psp_at,psp_a1,_flag_C, _flag_C); //C 
+
+   emit_srl(psp_a0,psp_a0,v);
+   emit_sw(psp_a0,RCPU,thumb_reg_pos_offset(0));
+
+   emit_ext(psp_a1,psp_a0,31,31);
+   emit_ins(psp_at,psp_a1,_flag_N, _flag_N); //N 
+
+   emit_sltiu(psp_a1, psp_a0, 1);
+   emit_ins(psp_at,psp_a1,_flag_Z, _flag_Z); //Z 
+
+   emit_sw(psp_at,RCPU,_flags);
+
+   return OPR_RESULT(OPR_CONTINUE, 1);
 }
 
 static OP_RESULT THUMB_OP_LSL_0(uint32_t pc, const u32 i)
@@ -949,18 +971,28 @@ static OP_RESULT THUMB_OP_MOV_IMM8(uint32_t pc, const u32 i)
 }
 
 
-static OP_RESULT THUMB_OP_CMP_IMM8(uint32_t pc, const u32 i)
+static OP_RESULT THUMB_OP_ADD_IMM8(uint32_t pc, const u32 i)
 {
-   return OPR_INTERPRET;
-
    sync_r15(i, false, 0);
 
    emit_lw(psp_at,RCPU,_flags);
 
    emit_lw(psp_a0,RCPU,thumb_reg_pos_offset(8));
-   emit_la(psp_a1, (i&0xFF));
 
-   emit_subu(psp_a2,psp_a0,psp_a1);
+   u8 imm = (i&0xFF);
+
+   emit_la(psp_a1,imm);
+
+   emit_add(psp_a2,psp_a0,psp_a1);
+
+   emit_sw(psp_a2,RCPU,thumb_reg_pos_offset(8));
+
+   emit_xor(psp_a3,psp_a1,psp_a2);
+   emit_xor(psp_a1,psp_a0,psp_a2);
+   emit_and(psp_a3,psp_a3,psp_a1);
+
+   emit_ext(psp_a3,psp_a3,31,31);
+   emit_ins(psp_at,psp_a3,_flag_V, _flag_V);
    
    emit_ext(psp_a1,psp_a2,31,31);
    emit_ins(psp_at,psp_a1,_flag_N, _flag_N);
@@ -968,10 +1000,179 @@ static OP_RESULT THUMB_OP_CMP_IMM8(uint32_t pc, const u32 i)
    emit_sltiu(psp_a1, psp_a2, 1);
    emit_ins(psp_at,psp_a1,_flag_Z, _flag_Z);
 
-   emit_sltiu(psp_a1, psp_a0, (i&0xFF));
+   emit_sltu(psp_a1, 0, 1);
    emit_ins(psp_at,psp_a1,_flag_C, _flag_C);
 
-   //Missing flag V code...
+   emit_sw(psp_at,RCPU,_flags);
+
+   return OPR_RESULT(OPR_CONTINUE, 1);
+}
+
+static OP_RESULT THUMB_OP_ADD_IMM3(uint32_t pc, const u32 i)
+{
+   sync_r15(i, false, 0);
+
+   emit_lw(psp_at,RCPU,_flags);
+
+   emit_lw(psp_a0,RCPU,thumb_reg_pos_offset(3));
+
+   u8 imm = (i>>6)&0x07;
+
+   if (imm == 0)	// mov 2
+	{
+      emit_sw(psp_a0,RCPU,thumb_reg_pos_offset(0));
+
+      emit_ext(psp_a2,psp_a0,31,31);
+      emit_ins(psp_at,psp_a2,_flag_N, _flag_N);
+
+      emit_sltiu(psp_a2, psp_a0, 1);
+      emit_ins(psp_at,psp_a2,_flag_Z, _flag_Z);
+
+      emit_ins(psp_at,psp_zero,_flag_C, _flag_C);
+      emit_ins(psp_at,psp_zero,_flag_V, _flag_V);
+
+      emit_sw(psp_at,RCPU,_flags);
+
+		return OPR_RESULT(OPR_CONTINUE, 1);
+	}
+
+   emit_la(psp_a1,imm);
+
+   emit_add(psp_a2,psp_a0,psp_a1);
+
+   emit_sw(psp_a2,RCPU,thumb_reg_pos_offset(0));
+
+   emit_xor(psp_a3,psp_a1,psp_a2);
+   emit_xor(psp_a1,psp_a0,psp_a2);
+   emit_and(psp_a3,psp_a3,psp_a1);
+
+   emit_ext(psp_a3,psp_a3,31,31);
+   emit_ins(psp_at,psp_a3,_flag_V, _flag_V);
+   
+   emit_ext(psp_a1,psp_a2,31,31);
+   emit_ins(psp_at,psp_a1,_flag_N, _flag_N);
+
+   emit_sltiu(psp_a1, psp_a2, 1);
+   emit_ins(psp_at,psp_a1,_flag_Z, _flag_Z);
+
+   emit_sltu(psp_a1, 0, 1);
+   emit_ins(psp_at,psp_a1,_flag_C, _flag_C);
+
+   emit_sw(psp_at,RCPU,_flags);
+
+   return OPR_RESULT(OPR_CONTINUE, 1);
+}
+
+static OP_RESULT THUMB_OP_CMP_IMM8(uint32_t pc, const u32 i)
+{
+   sync_r15(i, false, 0);
+
+   emit_lw(psp_at,RCPU,_flags);
+
+   emit_lw(psp_a0,RCPU,thumb_reg_pos_offset(8));
+
+   u8 imm = (i&0xFF);
+
+   emit_la(psp_a1,-imm);
+
+   emit_add(psp_a2,psp_a0,psp_a1);
+
+   emit_xor(psp_a3,psp_a1,psp_a2);
+   emit_xor(psp_a1,psp_a0,psp_a2);
+   emit_and(psp_a3,psp_a3,psp_a1);
+
+   emit_ext(psp_a3,psp_a3,31,31);
+   emit_ins(psp_at,psp_a3,_flag_V, _flag_V);
+   
+   emit_ext(psp_a1,psp_a2,31,31);
+   emit_ins(psp_at,psp_a1,_flag_N, _flag_N);
+
+   emit_sltiu(psp_a1, psp_a2, 1);
+   emit_ins(psp_at,psp_a1,_flag_Z, _flag_Z);
+
+   emit_sltiu(psp_a1, psp_a0, imm);
+   emit_not(psp_a1,psp_a1);
+   emit_ins(psp_at,psp_a1,_flag_C, _flag_C);
+
+   emit_sw(psp_at,RCPU,_flags);
+
+   return OPR_RESULT(OPR_CONTINUE, 1);
+}
+
+static OP_RESULT THUMB_OP_SUB_IMM8(uint32_t pc, const u32 i)
+{
+   sync_r15(i, false, 0);
+
+   emit_lw(psp_at,RCPU,_flags);
+
+   emit_lw(psp_a0,RCPU,thumb_reg_pos_offset(8));
+
+   u8 imm = (i&0xFF);
+
+   emit_la(psp_a1,-imm);
+
+   emit_add(psp_a2,psp_a0,psp_a1);
+
+   emit_sw(psp_a2,RCPU,thumb_reg_pos_offset(8));
+
+   emit_not(psp_a1,psp_a1);
+
+   emit_xor(psp_a3,psp_a1,psp_a2);
+   emit_xor(psp_a1,psp_a0,psp_a2);
+   emit_and(psp_a3,psp_a3,psp_a1);
+
+   emit_ext(psp_a3,psp_a3,31,31);
+   emit_ins(psp_at,psp_a3,_flag_V, _flag_V);
+   
+   emit_ext(psp_a1,psp_a2,31,31);
+   emit_ins(psp_at,psp_a1,_flag_N, _flag_N);
+
+   emit_sltiu(psp_a1, psp_a2, 1);
+   emit_ins(psp_at,psp_a1,_flag_Z, _flag_Z);
+
+   emit_sltiu(psp_a1, psp_a0, imm);
+   emit_not(psp_a1,psp_a1);
+   emit_ins(psp_at,psp_a1,_flag_C, _flag_C);
+
+   emit_sw(psp_at,RCPU,_flags);
+
+   return OPR_RESULT(OPR_CONTINUE, 1);
+}
+
+static OP_RESULT THUMB_OP_SUB_IMM3(uint32_t pc, const u32 i)
+{
+   sync_r15(i, false, 0);
+
+   emit_lw(psp_at,RCPU,_flags);
+
+   emit_lw(psp_a0,RCPU,thumb_reg_pos_offset(3));
+   
+   u8 imm = (i>>6)&0x07;
+
+   emit_la(psp_a1,-imm);
+
+   emit_add(psp_a2,psp_a0,psp_a1);
+
+   emit_sw(psp_a2,RCPU,thumb_reg_pos_offset(0));
+
+   emit_not(psp_a1,psp_a1);
+
+   emit_xor(psp_a3,psp_a1,psp_a2);
+   emit_xor(psp_a1,psp_a0,psp_a2);
+   emit_and(psp_a3,psp_a3,psp_a1);
+
+   emit_ext(psp_a3,psp_a3,31,31);
+   emit_ins(psp_at,psp_a3,_flag_V, _flag_V);
+   
+   emit_ext(psp_a1,psp_a2,31,31);
+   emit_ins(psp_at,psp_a1,_flag_N, _flag_N);
+
+   emit_sltiu(psp_a1, psp_a2, 1);
+   emit_ins(psp_at,psp_a1,_flag_Z, _flag_Z);
+
+   emit_sltiu(psp_a1, psp_a0, imm);
+   emit_not(psp_a1,psp_a1);
+   emit_ins(psp_at,psp_a1,_flag_C, _flag_C);
 
    emit_sw(psp_at,RCPU,_flags);
 
@@ -984,6 +1185,8 @@ static OP_RESULT THUMB_OP_CMP_IMM8(uint32_t pc, const u32 i)
 
 static OP_RESULT THUMB_OP_AND(uint32_t pc, const u32 i)
 {
+   sync_r15(i, false, 0);
+
 	emit_lw(psp_at,RCPU,_flags);
 
    emit_lw(psp_a0,RCPU,thumb_reg_pos_offset(0));
@@ -1002,12 +1205,73 @@ static OP_RESULT THUMB_OP_AND(uint32_t pc, const u32 i)
 	return OPR_RESULT(OPR_CONTINUE, 1);
 }
 
+static OP_RESULT THUMB_OP_BIC(uint32_t pc, const u32 i)
+{
+   sync_r15(i, false, 0);
+
+	emit_lw(psp_at,RCPU,_flags);
+
+   emit_lw(psp_a0,RCPU,thumb_reg_pos_offset(0));
+   emit_lw(psp_a1,RCPU,thumb_reg_pos_offset(3));
+
+   emit_not(psp_a1,psp_a1);
+   emit_and(psp_a0,psp_a0,psp_a1);
+
+   emit_sw(psp_a0,RCPU,thumb_reg_pos_offset(0));
+   
+   emit_ext(psp_a1,psp_a0,31,31);
+   emit_ins(psp_at,psp_a1,_flag_N, _flag_N);
+
+   emit_sltiu(psp_a1, psp_a0, 1);
+   emit_ins(psp_at,psp_a1,_flag_Z, _flag_Z);
+
+   emit_sw(psp_at,RCPU,_flags);
+
+	return OPR_RESULT(OPR_CONTINUE, 1);
+}
+
+
+static OP_RESULT THUMB_OP_CMN(uint32_t pc, const u32 i)
+{
+   sync_r15(i, false, 0);
+
+   emit_lw(psp_at,RCPU,_flags);
+
+   emit_lw(psp_a0,RCPU,thumb_reg_pos_offset(0));
+   emit_lw(psp_a1,RCPU,thumb_reg_pos_offset(8));
+
+   emit_add(psp_a2,psp_a0,psp_a1);
+
+   emit_xor(psp_a3,psp_a1,psp_a2);
+   emit_xor(psp_a1,psp_a0,psp_a2);
+   emit_and(psp_a3,psp_a3,psp_a1);
+
+   emit_ext(psp_a3,psp_a3,31,31);
+   emit_ins(psp_at,psp_a3,_flag_V, _flag_V);
+   
+   emit_ext(psp_a1,psp_a2,31,31);
+   emit_ins(psp_at,psp_a1,_flag_N, _flag_N);
+
+   emit_sltiu(psp_a1, psp_a2, 1);
+   emit_ins(psp_at,psp_a1,_flag_Z, _flag_Z);
+
+   emit_sltu(psp_a1, 0, 1);
+   emit_ins(psp_at,psp_a1,_flag_C, _flag_C);
+
+   emit_sw(psp_at,RCPU,_flags);
+
+   return OPR_RESULT(OPR_CONTINUE, 1);
+}
+
+
 //-----------------------------------------------------------------------------
 //   EOR
 //-----------------------------------------------------------------------------
 
 static OP_RESULT THUMB_OP_EOR(uint32_t pc, const u32 i)
 {
+   sync_r15(i, false, 0);
+
 	emit_lw(psp_at,RCPU,_flags);
 
    emit_lw(psp_a0,RCPU,thumb_reg_pos_offset(0));
@@ -1032,6 +1296,8 @@ static OP_RESULT THUMB_OP_EOR(uint32_t pc, const u32 i)
 
 static OP_RESULT THUMB_OP_MVN(uint32_t pc, const u32 i)
 {
+   sync_r15(i, false, 0);
+   
 	emit_lw(psp_at,RCPU,_flags);
 
    emit_lw(psp_a0,RCPU,thumb_reg_pos_offset(3));
@@ -1049,12 +1315,80 @@ static OP_RESULT THUMB_OP_MVN(uint32_t pc, const u32 i)
 	return OPR_RESULT(OPR_CONTINUE, 1);
 }
 
-static OP_RESULT THUMB_OP_ADDSUB_REGIMM(uint32_t pc, uint32_t opcode)
+static OP_RESULT THUMB_OP_ORR(uint32_t pc, const u32 i)
 {
-   return OPR_INTERPRET;
+   sync_r15(i, false, 0);
+
+	emit_lw(psp_at,RCPU,_flags);
+
+   emit_lw(psp_a0,RCPU,thumb_reg_pos_offset(0));
+   emit_lw(psp_a1,RCPU,thumb_reg_pos_offset(3));
+   emit_or(psp_a0,psp_a0,psp_a1);
+   emit_sw(psp_a0,RCPU,thumb_reg_pos_offset(0));
+   
+   emit_ext(psp_a1,psp_a0,31,31);
+   emit_ins(psp_at,psp_a1,_flag_N, _flag_N);
+
+   emit_sltiu(psp_a1, psp_a0, 1);
+   emit_ins(psp_at,psp_a1,_flag_Z, _flag_Z);
+
+   emit_sw(psp_at,RCPU,_flags);
+
+	return OPR_RESULT(OPR_CONTINUE, 1);
 }
 
-static OP_RESULT THUMB_OP_MCAS_IMM8(uint32_t pc, uint32_t opcode)
+//-----------------------------------------------------------------------------
+//   TST
+//-----------------------------------------------------------------------------
+static OP_RESULT THUMB_OP_TST(uint32_t pc, const u32 i)
+{
+   sync_r15(i, false, 0);
+
+   emit_lw(psp_at,RCPU,_flags);
+
+   emit_lw(psp_a0,RCPU,thumb_reg_pos_offset(0));
+   emit_lw(psp_a1,RCPU,thumb_reg_pos_offset(3));
+
+   emit_and(psp_a0,psp_a0,psp_a1);
+
+	emit_ext(psp_a1,psp_a0,31,31);
+   emit_ins(psp_at,psp_a1,_flag_N, _flag_N);
+
+   emit_sltiu(psp_a1, psp_a0, 1);
+   emit_ins(psp_at,psp_a1,_flag_Z, _flag_Z);
+
+   emit_sw(psp_at,RCPU,_flags);
+
+	return OPR_RESULT(OPR_CONTINUE, 1);
+}
+
+static OP_RESULT THUMB_OP_ROR_REG(uint32_t pc, const u32 i)
+{
+   return OPR_INTERPRET;
+
+   sync_r15(i, false, 0);
+
+   emit_lw(psp_at,RCPU,_flags);
+
+   emit_lw(psp_a0,RCPU,thumb_reg_pos_offset(0));
+   emit_lbu(psp_a1,RCPU,thumb_reg_pos_offset(3) + 3);
+
+   //emit_movz
+
+   emit_and(psp_a0,psp_a0,psp_a1);
+
+	emit_ext(psp_a1,psp_a0,31,31);
+   emit_ins(psp_at,psp_a1,_flag_N, _flag_N);
+
+   emit_sltiu(psp_a1, psp_a0, 1);
+   emit_ins(psp_at,psp_a1,_flag_Z, _flag_Z);
+
+   emit_sw(psp_at,RCPU,_flags);
+
+	return OPR_RESULT(OPR_CONTINUE, 1);
+}
+
+static OP_RESULT THUMB_OP_ADDSUB_REGIMM(uint32_t pc, uint32_t opcode)
 {
    return OPR_INTERPRET;
 }
@@ -1104,6 +1438,48 @@ static OP_RESULT THUMB_OP_ADD_SPE(uint32_t pc, const u32 i){
    return OPR_RESULT(OPR_CONTINUE, 1);
 }
 
+static void MUL_Mxx_END(bool sign)
+{
+	/*if(sign)
+	{
+		GpVar y = c.newGpVar(kX86VarTypeGpd);
+		c.mov(y, x);
+		c.sar(x, 31);
+		c.xor_(x, y);
+	}
+	c.or_(x, 1);
+	c.bsr(bb_cycles, x);
+	c.shr(bb_cycles, 3);
+	c.add(bb_cycles, cycles+1);*/
+}
+
+static OP_RESULT THUMB_OP_MUL_REG(uint32_t pc, const u32 i){
+   
+   sync_r15(i, false, 0);
+
+   emit_lw(psp_a0,RCPU,thumb_reg_pos_offset(3));
+   emit_lw(psp_a1,RCPU,thumb_reg_pos_offset(0));
+
+   emit_mult(psp_a1,psp_a0);
+
+   emit_mflo(psp_a0);
+
+   emit_sw(psp_a0,RCPU,thumb_reg_pos_offset(0));
+
+   emit_lw(psp_at,RCPU,_flags);
+
+   emit_ext(psp_a1,psp_a0,31,31);
+   emit_ins(psp_at,psp_a1,_flag_N, _flag_N);
+
+   emit_sltiu(psp_a1, psp_a0, 1);
+   emit_ins(psp_at,psp_a1,_flag_Z, _flag_Z);
+
+   if (block_procnum == 1)	// ARM4T 1S + mI, m = 3
+		return OPR_RESULT(OPR_CONTINUE, 4);
+
+   return OPR_RESULT(OPR_CONTINUE, 5);
+}
+
 /*
 static OP_RESULT THUMB_OP_CMP_SPE(uint32_t pc, const u32 i){
    sync_r15(i, false, 0);
@@ -1146,6 +1522,7 @@ static OP_RESULT THUMB_OP_LDR_SPREL(uint32_t pc, uint32_t opcode)
 
 static OP_RESULT THUMB_OP_B_COND(uint32_t pc, uint32_t opcode)
 {
+
    return OPR_INTERPRET;
 }
 
@@ -1156,14 +1533,11 @@ static OP_RESULT THUMB_OP_B_UNCOND(uint32_t pc, const u32 i)
 {
    return OPR_INTERPRET;
 
-   u32 dst = (SIGNEXTEND_11(i)<<1);
-   //sync_r15(i, false, 0);
+   u32 dst = pc + 4 + (SIGNEXTEND_11(i)<<1);
+   sync_r15(i, false, 0);
 
-   emit_lui(psp_a1,dst>>16);
-   emit_ori(psp_a1,psp_a1,dst&0xFFFF);
-
-   emit_lw(psp_a0,RCPU,_R15);
-   emit_addu(psp_a0,psp_a0,psp_a1);
+   emit_lui(psp_a0,dst>>16);
+   emit_ori(psp_a0,psp_a0,dst&0xFFFF);
 
    emit_sw(psp_a0,RCPU,_R15);
    emit_sw(psp_a0,RCPU,_next_instr);
@@ -1242,39 +1616,22 @@ static OP_RESULT THUMB_OP_BL_10(uint32_t pc, const u32 i)
 #define THUMB_OP_INTERPRET       0
 #define THUMB_OP_UND_THUMB       THUMB_OP_INTERPRET
 
-#define THUMB_OP_ASR             THUMB_OP_SHIFT
-#define THUMB_OP_ASR_0           THUMB_OP_SHIFT
+#define THUMB_OP_ASR_0           0
 
 #define THUMB_OP_ADD_REG         THUMB_OP_ADDSUB_REGIMM
 #define THUMB_OP_SUB_REG         THUMB_OP_ADDSUB_REGIMM
-#define THUMB_OP_ADD_IMM3        THUMB_OP_ADDSUB_REGIMM
-#define THUMB_OP_SUB_IMM3        THUMB_OP_ADDSUB_REGIMM
 
-//#define THUMB_OP_MOV_IMM8        THUMB_OP_MCAS_IMM8
-#define THUMB_OP_CMP_IMM8        THUMB_OP_MCAS_IMM8
-#define THUMB_OP_ADD_IMM8        THUMB_OP_MCAS_IMM8
-#define THUMB_OP_SUB_IMM8        THUMB_OP_MCAS_IMM8
-
-//#define THUMB_OP_AND             THUMB_OP_ALU
-//#define THUMB_OP_EOR             THUMB_OP_ALU
 #define THUMB_OP_LSL_REG         THUMB_OP_ALU
 #define THUMB_OP_LSR_REG         THUMB_OP_ALU
 #define THUMB_OP_ASR_REG         THUMB_OP_ALU
 #define THUMB_OP_ADC_REG         THUMB_OP_ALU
 #define THUMB_OP_SBC_REG         THUMB_OP_ALU
 #define THUMB_OP_ROR_REG         THUMB_OP_ALU
-#define THUMB_OP_TST             THUMB_OP_ALU
 #define THUMB_OP_NEG             THUMB_OP_ALU
 #define THUMB_OP_CMP             THUMB_OP_ALU
-#define THUMB_OP_CMN             THUMB_OP_ALU
-#define THUMB_OP_ORR             THUMB_OP_ALU
-#define THUMB_OP_MUL_REG         THUMB_OP_INTERPRET
-#define THUMB_OP_BIC             THUMB_OP_ALU
-//#define THUMB_OP_MVN             THUMB_OP_ALU
+//#define THUMB_OP_CMN             THUMB_OP_ALU
 
-//#define THUMB_OP_ADD_SPE         THUMB_OP_SPE
 #define THUMB_OP_CMP_SPE           0
-//#define THUMB_OP_MOV_SPE         THUMB_OP_SPE
 
 #define THUMB_OP_LDRB_REG_OFF    THUMB_OP_MEMORY<true , 0, 0, true>
 #define THUMB_OP_LDRH_REG_OFF    THUMB_OP_MEMORY<true , 1, 0, true>
@@ -1348,18 +1705,6 @@ static u32 FASTCALL OP_DECODE()
 	}
 	ARMPROC.instruct_adr = ARMPROC.next_instruction;
 	return cycles;
-}
-template<int PROCNUM>
-static u32 FASTCALL DYNAREC_EXEC(u32 pc)
-{
-   ARMPROC.next_instruction = pc + 4;
-   ARMPROC.R[15] = pc + 8;
-   u32 opcode = _MMU_read32<PROCNUM, MMU_AT_CODE>(pc);
-
-   if(TEST_COND(CONDITION(opcode), CODE(opcode), ARMPROC.CPSR))
-      return arm_instructions_set[PROCNUM][INSTRUCTION_INDEX(opcode)](opcode);
-
-	return 1;
 }
 
 static const ArmOpCompiled op_decode[2][2] = { OP_DECODE<0,0>, OP_DECODE<0,1>, OP_DECODE<1,0>, OP_DECODE<1,1> };
@@ -1470,51 +1815,82 @@ static void emit_branch(int cond,u32 opcode, u32 sz,bool EndBlock)
 
 	if(cond < 8)
 	{
-      u32 label = ((u32)emit_GetCCPtr()) + 32;
-
       emit_lbu(psp_at,psp_k0,_flags+3);
-
       emit_andi(psp_a1,psp_at, cond_bit[cond]);
 
-      emit_lui(psp_a2,label>>16);
-      emit_ori(psp_a2,psp_a2,label&0xFFFF);
-
-      emit_addiu(psp_at,psp_a2,sz);
+      u32 label = ((u32)emit_GetCCPtr()) + sz + 8;
 
       if(cond & 1)
-         emit_movn(psp_a2,psp_at,psp_a1);
+         emit_bne(psp_a1,psp_zero,label);
       else
-         emit_movz(psp_a2,psp_at,psp_a1);
+         emit_beq(psp_a1,psp_zero,label);
 
-      emit_jr(psp_a2);
       emit_nop();
 
       return;
 	}
 
-   u32 label = ((u32)emit_GetCCPtr()) + (13 * 4);
+   u32 label = 0;
 
-   emit_lui(psp_a2,label>>16);
-   emit_ori(psp_a2,psp_a2,label&0xFFFF);
+   switch (cond){
 
-   emit_lbu(psp_at,psp_k0,_flags + 3);
-   emit_andi(psp_at,psp_at,0xF0);
+      case 8:  
+      case 9:
 
-   emit_lui(psp_a3, ((u32)&_cond_table(cond))>>16);
-   emit_ori(psp_a3, psp_a3,((u32)&_cond_table(cond))&0xFFFF);
-   
-   emit_addu(psp_a3,psp_a3, psp_at);
-   emit_lbu(psp_a1,psp_a3, 0);
+         emit_lbu(psp_at,psp_k0,_flags + 3);
 
-   emit_andi(psp_a1, psp_a1, 1);
-   emit_addiu(psp_at,psp_a2,sz);
+         emit_ext(psp_a1,psp_at,6,5);
+         emit_xori(psp_a1,psp_a1,0b01);
 
-   emit_movz(psp_a2,psp_at,psp_a1);
+         label = ((u32)emit_GetCCPtr()) + sz + 8;
 
-   emit_jr(psp_a2);
-   emit_nop();
+         if (cond == 8) emit_bne(psp_a1,psp_zero,label); //1000 HI C set and Z clear unsigned higher
+         else           emit_beq(psp_a1,psp_zero,label); //1001 LS C clear or Z set unsigned lower or same
+         
+         emit_nop();
+      break;
+
+      case 10:
+      case 11:
+
+         emit_lbu(psp_at,psp_k0,_flags + 3);
+
+         emit_ext(psp_a1,psp_at,7,7);
+         emit_ext(psp_at,psp_at,4,4);
+
+         emit_xor(psp_a1,psp_a1,psp_at);
+
+         label = ((u32)emit_GetCCPtr()) + sz + 8;
+
+         if (cond == 10) emit_bne(psp_a1,psp_zero,label); //GE N equals V greater or equal
+         else            emit_beq(psp_a1,psp_zero,label); //LT N not equal to V less than
+
+         emit_nop();
+      break;
+
+      case 12:
+      case 13:
+
+         emit_lbu(psp_at,psp_k0,_flags + 3);
+
+         emit_ext(psp_a1,psp_at,7,6);
+         emit_ext(psp_at,psp_at,4,3);
+
+         emit_andi(psp_at,psp_at,0b10);
+         emit_xor(psp_a1,psp_a1,psp_at);
+
+         label = ((u32)emit_GetCCPtr()) + sz + 8;
+
+         if (cond == 12) emit_bne(psp_a1,psp_zero,label); //GT Z clear AND (N equals V) greater than
+         else           emit_beq(psp_a1,psp_zero,label); //LE Z set OR (N not equal to V) less than or equal
+
+         emit_nop();
+      break;
+
+      default:
+      break;
+   }
 }
-
 
 template<int PROCNUM>
 static u32 compile_basicblock()
