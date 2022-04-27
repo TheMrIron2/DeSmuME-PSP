@@ -121,6 +121,7 @@ public:
 		BOOL store(u8 CRd, u8 adr);
 		BOOL moveCP2ARM(u32 * R, u8 CRn, u8 CRm, u8 opcode1, u8 opcode2);
 		BOOL moveARM2CP(u32 val, u8 CRn, u8 CRm, u8 opcode1, u8 opcode2);
+		BOOL moveARM2CP_2(u32 val, u8 CRn, u8 CRm, u16 opcodes);
 		BOOL isAccessAllowed(u32 address,u32 access);
 		// savestate
 		void saveone(EMUFILE* os);

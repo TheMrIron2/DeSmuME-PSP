@@ -117,8 +117,6 @@ SFORMAT SF_ARM7[]={
 	{ "7FIQ", 4, 1, &NDS_ARM7.SPSR_fiq },
 	{ "7int", 4, 1, &NDS_ARM7.intVector },
 	{ "7LDT", 1, 1, &NDS_ARM7.LDTBit },
-	{ "7Wai", 4, 1, &NDS_ARM7.waitIRQ },
-	{ "7hef", 4, 1, &NDS_ARM7.halt_IE_and_IF },
 	{ "7iws", 1, 1, &NDS_ARM7.intrWaitARM_state },
 	{ 0 }
 };
@@ -154,8 +152,6 @@ SFORMAT SF_ARM9[]={
 	{ "9FIQ", 4, 1, &NDS_ARM9.SPSR_fiq},
 	{ "9int", 4, 1, &NDS_ARM9.intVector},
 	{ "9LDT", 1, 1, &NDS_ARM9.LDTBit},
-	{ "9Wai", 4, 1, &NDS_ARM9.waitIRQ},
-	{ "9hef", 4, 1, &NDS_ARM9.halt_IE_and_IF },
 	{ "9iws", 1, 1, &NDS_ARM9.intrWaitARM_state },
 	{ 0 }
 };
@@ -182,25 +178,16 @@ SFORMAT SF_MEM[]={
 };
 
 SFORMAT SF_NDS[]={
-	{ "_WCY", 4, 1, &nds.wifiCycle},
 	{ "_TCY", 8, 8, nds.timerCycle},
-	{ "_VCT", 4, 1, &nds.VCount},
-	{ "_OLD", 4, 1, &nds.old},
 	{ "_TPX", 2, 1, &nds.adc_touchX},
 	{ "_TPY", 2, 1, &nds.adc_touchY},
-	{ "_TPC", 2, 1, &nds.adc_jitterctr},
 	{ "_STX", 2, 1, &nds.scr_touchX},
 	{ "_STY", 2, 1, &nds.scr_touchY},
-	{ "_TPB", 4, 1, &nds.isTouch},
-	{ "_IFB", 4, 1, &nds.isFakeBooted},
-	{ "_DBG", 4, 1, &nds._DebugConsole},
+	{ "_HWS", 4, 1, &nds.hw_status.val},
 	{ "_ENS", 4, 1, &nds.ensataEmulation},
-	{ "_TYP", 4, 1, &nds.ConsoleType},
 	{ "_ENH", 4, 1, &nds.ensataHandshake},
 	{ "_ENI", 4, 1, &nds.ensataIpcSyncCounter},
-	{ "_SLP", 4, 1, &nds.sleeping},
 	{ "_FBS", 4, 1, &nds.freezeBus},
-	{ "_CEJ", 4, 1, &nds.cardEjected},
 	{ "_PDL", 2, 1, &nds.paddle},
 	{ "_P00", 1, 1, &nds.power1.lcd},
 	{ "_P01", 1, 1, &nds.power1.gpuMain},
@@ -1246,7 +1233,6 @@ bool savestate_load(EMUFILE* is)
 	//_HACK_DONT_STOPMOVIE = false;
 
 	//reset some options to their old defaults which werent saved
-	nds._DebugConsole = FALSE;
 
 	//GPU_Reset(MainScreen.gpu, 0);
 	//GPU_Reset(SubScreen.gpu, 1);
@@ -1264,15 +1250,6 @@ bool savestate_load(EMUFILE* is)
 	}
 
 	loadstate();
-
-	if(nds.ConsoleType != CommonSettings.ConsoleType) {
-		printf("WARNING: forcing console type to: ConsoleType=%d\n",nds.ConsoleType);
-	}
-
-	if((nds._DebugConsole!=0) != CommonSettings.DebugConsole) {
-			printf("WARNING: forcing console debug mode to: debugmode=%s\n",nds._DebugConsole?"TRUE":"FALSE");
-	}
-
 
 	return true;
 }

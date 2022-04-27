@@ -36,6 +36,12 @@
 #define EXCEPTION_IRQ 0x18
 #define EXCEPTION_FAST_IRQ 0x1C
 
+#define CPU_FREEZE_NONE 0x00
+#define CPU_FREEZE_WAIT_IRQ 0x01 //waiting for some IRQ to happen, any IRQ
+#define CPU_FREEZE_IE_IF 0x02 //waiting for IE&IF to signal something (probably edge triggered on IRQ too)
+#define CPU_FREEZE_IRQ_IE_IF (CPU_FREEZE_WAIT_IRQ|CPU_FREEZE_IE_IF)
+#define CPU_FREEZE_OVERCLOCK_HACK 0x04
+
 #define INSTRUCTION_INDEX(i) ((((i)>>16)&0xFF0)|(((i)>>4)&0xF))
 
 inline u32 ROR(u32 i, u32 j)   { return ((((u32)(i))>>(j)) | (((u32)(i))<<(32-(j)))); }
@@ -202,7 +208,7 @@ typedef union
 {
 	struct
 	{
-                u32 mode : 5,
+        u32 mode : 5,
 		T : 1,
 		F : 1,
 		I : 1,
@@ -289,8 +295,9 @@ struct armcpu_t
 
 	u32 intVector;
 	u8 LDTBit;  //1 : ARMv5 style 0 : non ARMv5 (earlier)
-	BOOL waitIRQ;
-	BOOL halt_IE_and_IF; //the cpu is halted, waiting for IE&IF to signal something
+	
+	u32 freeze;
+	
 	u8 intrWaitARM_state;
 
 	BOOL BIOS_loaded;

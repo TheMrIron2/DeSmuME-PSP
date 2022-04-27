@@ -42,6 +42,9 @@
 #include "PSP/pspvfpu.h"
 #include "rasterize.h"
 
+#include "me.h"
+#include <pspaudiocodec.h>
+
 #ifdef FASTBUILD
 	#undef FORCEINLINE
 	#define FORCEINLINE
@@ -115,7 +118,8 @@ CACHE_ALIGN u8 gpuBlendTable555[17][17][32][32];
 int psp_addrScreenLine[192];
 int psp_addrScreen3DLine[256];
 
-volatile u8 __attribute__((aligned(16))) GPU_Screen[192 * 256 * 4];
+volatile u8 __attribute__((aligned(64))) GPU_Screen[192 * 256 * 4];
+volatile u8 __attribute__((aligned(64))) *ME_GPU_Screen; //ME scratchpad location
 
 
 /*****************************************************************************/
@@ -258,19 +262,25 @@ static void GPU_resortBGs(GPU *gpu)
 #define OP ^ !
 // if we untick boxes, layers become invisible
 //#define OP &&
-
+	/***
 	gpu->LayersEnable[0] = my_config.gpuLayerEnabled[gpu->core][0] OP(cnt->BG0_Enable);
 	gpu->LayersEnable[1] = my_config.gpuLayerEnabled[gpu->core][1] OP(cnt->BG1_Enable);
 	gpu->LayersEnable[2] = my_config.gpuLayerEnabled[gpu->core][2] OP(cnt->BG2_Enable);
 	gpu->LayersEnable[3] = my_config.gpuLayerEnabled[gpu->core][3] OP(cnt->BG3_Enable);
 	gpu->LayersEnable[4] = my_config.gpuLayerEnabled[gpu->core][4] OP(cnt->OBJ_Enable);
-	/***
+	
 	gpu->LayersEnable[0] = CommonSettings.dispLayers[gpu->core][0] OP(cnt->BG0_Enable);
 	gpu->LayersEnable[1] = CommonSettings.dispLayers[gpu->core][1] OP(cnt->BG1_Enable);
 	gpu->LayersEnable[2] = CommonSettings.dispLayers[gpu->core][2] OP(cnt->BG2_Enable);
 	gpu->LayersEnable[3] = CommonSettings.dispLayers[gpu->core][3] OP(cnt->BG3_Enable);
 	gpu->LayersEnable[4] = CommonSettings.dispLayers[gpu->core][4] OP(cnt->OBJ_Enable);
 	***/
+
+	gpu->LayersEnable[0] = cnt->BG0_Enable;
+	gpu->LayersEnable[1] = cnt->BG1_Enable;
+	gpu->LayersEnable[2] = cnt->BG2_Enable;
+	gpu->LayersEnable[3] = cnt->BG3_Enable;
+	gpu->LayersEnable[4] = cnt->OBJ_Enable;
 
 	// KISS ! lower priority first, if same then lower num
 	for (i=0;i<NB_PRIORITIES;i++) {
@@ -279,8 +289,7 @@ static void GPU_resortBGs(GPU *gpu)
 		item->nbPixelsX=0;
 	}
 	for (i=NB_BG; i>0; ) {
-		i--;
-		if (!gpu->LayersEnable[i]) continue;
+		if (!gpu->LayersEnable[--i]) continue;
 		prio = (gpu->dispx_st)->dispx_BGxCNT[i].bits.Priority;
 		item = &(gpu->itemsForPriority[prio]);
 		item->BGs[item->nbBGs]=i;
@@ -580,7 +589,7 @@ FORCEINLINE void GPU::renderline_checkWindows(u16 x, bool &draw, bool &effect) c
 
 #define RGB15(r,v,b,a)	((((b)>>3)<<10) | (((v)>>3)<<5) | ((r)>>3) | (1<<15))
 #define RGB16(r,v,b,a)	((((b)>>3)<<11) | (((v)>>2)<<5) | ((r)>>3))
-#define RGBA(r,v,b,a)	((r) | ((v)<<8) | ((b)<<16) | ((a)<<24))
+#define RGBA(r,v,b,a)	((b) | ((v)<<8) | ((r)<<16) | ((a)<<24))
 template<BlendFunc FUNC, bool WINDOW>
 FORCEINLINE FASTCALL void GPU::_master_setFinal3dColor(int dstX, int srcX)
 {
@@ -593,25 +602,7 @@ FORCEINLINE FASTCALL void GPU::_master_setFinal3dColor(int dstX, int srcX)
 	u8 alpha = color[3];
 	u8* dst = currDst;
 
-
-	//Patch to fix ugly transparency problem..
-	//TODO: Remove it
-
-	if (red == 0 && blue == 0 && green == 0) {
-		u8* colorNext = &_3dColorLine[(srcX + 1) << 2];
-		if (colorNext[0] == 0 && colorNext[1] == 0 && colorNext[2] == 0) return;
-	}
-
-
 	u32 final = RGB15(red,green,blue,alpha);
-
-/*
-	if (red > 127 && blue == 0 && green == 0) return;
-	if (red == 0 && blue > 127 && green == 0) return;
-	if (red == 0 && blue == 0 && green > 127) return;*/
-		//if (red <= 6 && blue <= 6 && green <= 6) return;
-
-	//printf("RED: %d, BLUE: %d, GREEN: %d, ALPHA: %d\n", red, blue, green, alpha);
 	
 	HostWriteWord(dst, passing, final);
 	bgPixels[x] = 0;
@@ -1197,7 +1188,7 @@ FORCEINLINE void rot_scale_op(GPU * gpu, s32 X, s32 Y, s16 PA, s16 PB, s16 PC, s
 template<rot_fun fun>
 FORCEINLINE void apply_rot_fun(GPU * gpu, s32 X, s32 Y, s16 PA, s16 PB, s16 PC, s16 PD, u16 LG, u32 map, u32 tile, u8 * pal)
 {
-	struct _BGxCNT * bgCnt = &(gpu->dispx_st)->dispx_BGxCNT[gpu->currBgNum].bits;
+	struct _BGxCNT * bgCnt = &((gpu->dispx_st)->dispx_BGxCNT[gpu->currBgNum].bits);
 	s32 wh = gpu->BGSize[gpu->currBgNum][0];
 	s32 ht = gpu->BGSize[gpu->currBgNum][1];
 	if(bgCnt->PaletteSet_Wrap)
@@ -1281,9 +1272,9 @@ template<bool MOSAIC> void lineRot(GPU * gpu)
 {	
 	BGxPARMS * parms;
 	if (gpu->currBgNum==2) {
-		parms = &(gpu->dispx_st)->dispx_BG2PARMS;
+		parms = &((gpu->dispx_st)->dispx_BG2PARMS);
 	} else {
-		parms = &(gpu->dispx_st)->dispx_BG3PARMS;		
+		parms = &((gpu->dispx_st)->dispx_BG3PARMS);		
 	}
 
 	if(gpu->debug)
@@ -1310,9 +1301,9 @@ template<bool MOSAIC> void lineExtRot(GPU * gpu)
 {
 	BGxPARMS * parms;
 	if (gpu->currBgNum==2) {
-		parms = &(gpu->dispx_st)->dispx_BG2PARMS;
+		parms = &((gpu->dispx_st)->dispx_BG2PARMS);
 	} else {
-		parms = &(gpu->dispx_st)->dispx_BG3PARMS;		
+		parms = &((gpu->dispx_st)->dispx_BG3PARMS);		
 	}
 
 	if(gpu->debug)
@@ -1867,18 +1858,26 @@ void GPU::_spriteRender(u8 * dst, u8 * dst_alpha, u8 * typeTab, u8 * prioTab)
 //			SCREEN FUNCTIONS
 /*****************************************************************************/
 
+#include "melib.h"
+
 int Screen_Init()
 {
 	MainScreen.gpu = GPU_Init(0);
 	SubScreen.gpu = GPU_Init(1);
 
-	volatile u8 * buff = GPU_Screen;
-
-	memset((void*)GPU_Screen, 0, sizeof(GPU_Screen));
-	for(int i = 0; i < (256*192*4); i++)
-		*(buff++) = 0x7FFF;
-
 	disp_fifo.head = disp_fifo.tail = 0;
+
+	if (!IsEmu()){
+		sceAudiocodecGetEDRAM((long unsigned int*)ME_GPU_Screen, 0x1002);
+	}else{
+		ME_GPU_Screen = GPU_Screen;
+
+		volatile u8 * buff = ME_GPU_Screen;
+
+		memset((void*)buff, 0, sizeof(GPU_Screen));
+		for(int i = 0; i < (256*192*4); i++)
+			*(buff++) = 0x7FFF;
+	}
 
 	/*if (osd)  {delete osd; osd =NULL; }
 	osd  = new OSDCLASS(-1);*/
@@ -2331,7 +2330,7 @@ static INLINE void GPU_RenderLine_MasterBrightness(volatile NDS_Screen * screen,
 
 	//isn't it odd that we can set uselessly high factors here?
 	//factors above 16 change nothing. curious.
-	int factor = gpu->MasterBrightFactor;
+	int factor = PSP_UC(gpu->MasterBrightFactor);
 	if(factor==0) return;
 	if(factor>16) factor=16;
 
@@ -2483,16 +2482,11 @@ void GPU_RenderLine(volatile NDS_Screen * screen, u16 l, bool skip)
 {
 	GPU * gpu = screen->gpu;
 
-	sub_index = 0;
+	sub_index = screen->offset;
 
-	if (!my_config.swap){
-		if (gpu->core == GPU_SUB)
-			sub_index = addr_pspDisp_Lower;
-	}
-	else {
-		if (gpu->core == GPU_MAIN) 
-				sub_index = addr_pspDisp_Lower;
-	}
+	if (my_config.swap) 
+		if (sub_index == 0) sub_index = 512;
+		else                sub_index = 0;
 
 	switch (my_config.hide_screen) {
 		case 1:
@@ -2582,7 +2576,7 @@ void GPU_RenderLine(volatile NDS_Screen * screen, u16 l, bool skip)
 	//generate the 2d engine output
 	if(gpu->dispMode == 1) {
 		//optimization: render straight to the output buffer when thats what we are going to end up displaying anyway
-		gpu->tempScanline = screen->gpu->currDst = (u8*)(GPU_Screen)+psp_addrScreenLine[l] + sub_index;//+(screen->offset + l) * 512;//(u8 *)(GPU_Screen) + psp_addrScreenLine[l] + sub_index;
+		gpu->tempScanline = screen->gpu->currDst = (u8*)(ME_GPU_Screen)+psp_addrScreenLine[l] + sub_index;//+(screen->offset + l) * 512;//(u8 *)(GPU_Screen) + psp_addrScreenLine[l] + sub_index;
 	} else {
 		//otherwise, we need to go to a temp buffer
 		gpu->tempScanline = screen->gpu->currDst = (u8 *)gpu->tempScanlineBuffer;
@@ -2624,9 +2618,9 @@ void GPU_RenderLine(volatile NDS_Screen * screen, u16 l, bool skip)
 			{
 				//this has not been tested since the dma timing for dispfifo was changed around the time of
 				//newemuloop. it may not work.
-				/*u8 * dst =  GetFrameBuffer() + (screen->offset + l) * 512;
+				u8 * dst = gpu->currDst;
 				for (int i=0; i < 128; i++)
-					T1WriteLong(dst, i << 2, DISP_FIFOrecv() & 0x7FFF7FFF);*/
+					T1WriteLong(dst, i << 2, DISP_FIFOrecv() & 0x7FFF7FFF);
 			}
 			break;
 	}
@@ -2644,17 +2638,17 @@ void GPU_RenderLine(volatile NDS_Screen * screen, u16 l, bool skip)
 		if (my_config.cur && l == 190) {
 			int X = mouse.x << 1;
 			for (u16 yy = 0;yy < 5 && (yy+ mouse.y) < 190;++yy){
-				u8* framebuf = (u8*)(GPU_Screen)+psp_addrScreenLine[mouse.y +yy];//(u8*)(screen->gpu->currDst) /*+ (mouse.y) * 1024)*/; //GetFrameBuffer() + ((yy + y) * 1024);
+				u8* framebuf = (u8*)(ME_GPU_Screen + 512)+psp_addrScreenLine[mouse.y +yy];//(u8*)(screen->gpu->currDst) /*+ (mouse.y) * 1024)*/; //GetFrameBuffer() + ((yy + y) * 1024);
 				for (unsigned int xx = 0; xx < 8; xx++)
 				{
-					*(framebuf + (X + xx)) = 0x1C34;
+					*(framebuf + (X + xx)) = ~((*(framebuf + (X + xx)))>>1);
 				}
 			}
 		}
 
-	/*if (l == 190) {
-		memset((u32*)_screen, 0, 192 * 256*4);
-	}*/
+	if (l == 190) {
+		memcpy((void*)GPU_Screen, (void*)ME_GPU_Screen, 192 * 256 * 4);
+	}
 
 	GPU_RenderLine_MasterBrightness(screen, l);
 	
@@ -2725,8 +2719,8 @@ bool gpu_loadstate(EMUFILE* is, int size)
 
 u32 GPU::getAffineStart(int layer, int xy)
 {
-	if(xy==0) return affineInfo[layer-2].x;
-	else return affineInfo[layer-2].y;
+	if(xy==0) return (affineInfo[layer-2].x);
+	else return (affineInfo[layer-2].y);
 }
 
 void GPU::setAffineStartWord(int layer, int xy, u16 val, int word)
@@ -2739,8 +2733,8 @@ void GPU::setAffineStartWord(int layer, int xy, u16 val, int word)
 
 void GPU::setAffineStart(int layer, int xy, u32 val)
 {
-	if(xy==0) affineInfo[layer-2].x = val;
-	else affineInfo[layer-2].y = val;
+	if(xy==0) (affineInfo[layer-2].x) = val;
+	else (affineInfo[layer-2].y) = val;
 	refreshAffineStartRegs(layer,xy);
 }
 
@@ -2762,14 +2756,14 @@ void GPU::refreshAffineStartRegs(const int num, const int xy)
 
 	BGxPARMS * parms;
 	if (num==2)
-		parms = &(dispx_st)->dispx_BG2PARMS;
+		parms = &((dispx_st)->dispx_BG2PARMS);
 	else
-		parms = &(dispx_st)->dispx_BG3PARMS;		
+		parms = &((dispx_st)->dispx_BG3PARMS);		
 
 	if(xy==0)
-		parms->BGxX = affineInfo[num-2].x;
+		parms->BGxX = (affineInfo[num-2].x);
 	else
-		parms->BGxY = affineInfo[num-2].y;
+		parms->BGxY = (affineInfo[num-2].y);
 }
 
 template<bool MOSAIC> void GPU::modeRender(int layer)
@@ -2790,12 +2784,12 @@ template<bool MOSAIC> void GPU::modeRender(int layer)
 
 u32 GPU::getHOFS(int bg)
 {
-	return T1ReadWord(&dispx_st->dispx_BGxOFS[bg].BGxHOFS,0) & 0x1FF;
+	return T1ReadWord(&PSP_UC(dispx_st->dispx_BGxOFS[bg].BGxHOFS),0) & 0x1FF;
 }
 
 u32 GPU::getVOFS(int bg)
 {
-	return T1ReadWord(&dispx_st->dispx_BGxOFS[bg].BGxVOFS,0) & 0x1FF;
+	return T1ReadWord(&PSP_UC(dispx_st->dispx_BGxOFS[bg].BGxVOFS),0) & 0x1FF;
 }
 
 void gpu_SetRotateScreen(u16 angle)

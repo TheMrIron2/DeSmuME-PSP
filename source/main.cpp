@@ -56,20 +56,10 @@
 
 #include "PSP/pspvfpu.h"
 
-PSP_MODULE_INFO("DesmuME PSP", 0, 2, 1);
+PSP_MODULE_INFO("DesmuME PSP", 0, 3, 0);
 
 PSP_MAIN_THREAD_ATTR(PSP_THREAD_ATTR_USER | PSP_THREAD_ATTR_VFPU);
 
-#ifdef LOWRAM
-	PSP_HEAP_SIZE_KB(-2048);
-#else
-	PSP_HEAP_SIZE_KB(-8192);
-#endif // 
-
-PSP_MAIN_THREAD_STACK_SIZE_KB(1024);
-
-#define PLATFORM_PSP 0
-#define CURRENT_PLATFORM PLATFORM_PSP
 
 //From Daedalus
 extern "C" {
@@ -137,11 +127,11 @@ const char * save_type_names[] = {
 };
 
 configured_features my_config;
-
+extern bool ARM7_SKIP_HACK;
 
 void ShowFPS(int x,int y){
   pspDebugScreenSetXY(x,y);
-  pspDebugScreenPrintf("FPS: %d        ", FPS_Counter);
+  pspDebugScreenPrintf("FPS: %d    Underclock: %d  ", FPS_Counter, ARM7_SKIP_HACK);
 }
 
 void PrintfXY(const char* text, int x, int y) {
@@ -169,20 +159,18 @@ static void desmume_cycle()
 	 process_ctrls_event(pad);
 
     /* Update mouse position and click */
-	  if (mouse.click)
+	  if (!mouse.click)
 	  {
-		  NDS_setTouchPos(mouse.x, mouse.y);
+      NDS_releaseTouch();
 	  }
 	  else {
-		  NDS_releaseTouch();
+		   NDS_setTouchPos(mouse.x, mouse.y);
 	  }
 
     update_keypad(pad);     /* Update keypad */
 
-	//DrawScreen();
-
-    if (my_config.showfps)
-        ShowFPS(0,3);
+  if (my_config.showfps)
+      ShowFPS(0,3);
 
 #ifndef LOWRAM
 	if (my_config.enable_sound)
@@ -223,9 +211,6 @@ void EMU_Conf(){
 
   pspDebugScreenClear();
 
-  /*if (my_config.frameskip == 0) ++my_config.frameskip;
-  if (my_config.frameskip > 9) my_config.frameskip = 9;*/
-
 #ifndef LOWRAM
   if (my_config.enable_sound && !audio_inited) {
 	  SPU_ChangeSoundCore(SNDCORE_PSP, PSP_AUDIO_SAMPLE_MAX);
@@ -237,9 +222,6 @@ void EMU_Conf(){
 	  audio_inited = false;
   }
 #endif
-
-  GPU_remove(MainScreen.gpu, 0);
-  GPU_remove(SubScreen.gpu, 0);
 
   PrintfXY("ROM: ", 0, 1);
   PrintfXY(gameInfo.ROMname, 5, 1);
@@ -253,17 +235,13 @@ void EMU_Conf(){
 void ChangeRom(bool reset){
 
   if (reset){
-	  printf("Change rom\n");
-
     NDS_Reset();
 
-	//Init psp display again
-	pspDebugScreenInitEx((void*)(0x44000000), PSP_DISPLAY_PIXEL_FORMAT_5551, 1);
-	Init_PSP_DISPLAY_FRAMEBUFF();
+    //Init psp display again
+    pspDebugScreenInitEx((void*)(0x44000000), PSP_DISPLAY_PIXEL_FORMAT_5551, 1);
+    Init_PSP_DISPLAY_FRAMEBUFF();
   }
 
-
- // pspDebugScreenClear();
   DSEmuGui("",rom_filename);
   pspDebugScreenClear();
 
@@ -272,7 +250,7 @@ void ChangeRom(bool reset){
   if (error < 0) {
      vdDejaLog("ERROR ROM:");
      vdDejaLog(rom_filename);
-	 exit(-1);
+	   exit(-1);
   }
 
   execute = true;
@@ -288,24 +266,18 @@ void ResetRom() {
 	}
 
 	execute = true;
-	SkipMEDraw = false;
 }
-
-struct pspvfpu_context* psp_vfpu;
-bool SkipMEDraw = false;
-
 
 int main(int argc, char **argv) {
 
   u64 fps_timing = 0;
-  u32 fps_frame_counter = 0;
   u64 fps_previous_time = 0;
+  u32 fps_frame_counter = 0;
 
   /* the firmware settings */
   struct NDS_fw_config_data fw_config;
 
   scePowerSetClockFrequency(333, 333, 166);
-
 
   pspDebugScreenInitEx((void*)(0x44000000), PSP_DISPLAY_PIXEL_FORMAT_5551, 1);
 
@@ -338,18 +310,16 @@ int main(int argc, char **argv) {
 
   u8 _frameskip = my_config.frameskip;
 
-  printf("Ram: %d", RAMAMOUNT());
+  printf("Ram: %d\n", RAMAMOUNT());
 
   while(execute)
   {
-
-	//printf("AMOUNT %d\n", RAMAMOUNT());
 
     if (my_config.showfps){
       sceRtcGetCurrentTick(&fps_timing);
 	  
 
-      if(fps_timing - fps_previous_time > 1000000)
+      if((fps_timing - fps_previous_time)/sceRtcGetTickResolution() >= 1)
       {
         fps_previous_time = fps_timing;
         FPS_Counter = fps_frame_counter;
@@ -357,29 +327,27 @@ int main(int argc, char **argv) {
       }
     }
 
-	if (my_config.frameskip == 0) {
-		desmume_cycle();
-	}
-	else {
-		if (_frameskip--) {
-			desmume_cycle();
-			NDS_SkipNextFrame();
-		}
-		else {
-			_frameskip = my_config.frameskip;
-		}
-	}
+    if (my_config.fps_cap && FPS_Counter >= 30) sceDisplayWaitVblankStart(); //cap the framerate to 60- 30
 
-#ifdef DEBUG_PSP
-	if (BadME && !ErrorON) {
-		PrintfXY("Error: ME has been forced.", 23, 3);
-		ErrorON = true;
-	}
-#endif
-	++fps_frame_counter;
+    if (my_config.frameskip == 0) {
+      desmume_cycle();
 
-	NDS_exec<false>();
-	
+      ++fps_frame_counter;
+      NDS_exec<false>();
+      continue;
+    }
+    
+    
+    if (_frameskip--) {
+      desmume_cycle();
+      NDS_SkipNextFrame();
+    }
+    else {
+      _frameskip = my_config.frameskip;
+    }
+
+    ++fps_frame_counter;
+    NDS_exec<false>();
   }
 
   NDS_DeInit();

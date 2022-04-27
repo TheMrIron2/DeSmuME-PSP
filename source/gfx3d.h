@@ -605,6 +605,7 @@ struct Vertex
 {
 	//u16 color;
 	float u, v;
+	unsigned int col;
 	float x, y, z;
 };
 

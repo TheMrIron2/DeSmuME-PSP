@@ -82,7 +82,7 @@ void MatrixMultVec3x3 (const float *matrix, float *vecPtr)
 		"lv.q C110, 16 + %2\n"
 		"lv.q C120, 32 + %2\n"
 		"lv.q C200,  0 + %1\n"
-		"vtfm4.q C000, E100, C200\n"
+		"vtfm3.t C000, E100, C200\n"
 		"sv.q C000, %0\n"
 		: "=m"(*vecPtr) : "m"(*vecPtr), "m"(*matrix)
 		);
@@ -143,13 +143,11 @@ void MatrixDivide3X3(float* matrix, float div)
 		"mtv			$8,   s200\n"			
 		"lv.q			c100,  0 + %0\n"		
 		"lv.q			c110, 16 + %0\n"		
-		"lv.q			c120, 32 + %0\n"		
-		"lv.q			c130, 48 + %0\n"		
+		"lv.q			c120, 32 + %0\n"				
 		"vmscl.t		e000, e100, s200\n"		
 		"sv.q			c000,  0 + %0\n"		
 		"sv.q			c010, 16 + %0\n"		
-		"sv.q			c020, 32 + %0\n"		
-		"sv.q			c030, 48 + %0\n"		
+		"sv.q			c020, 32 + %0\n"				
 		".set			pop\n"					// restore assember option
 		: "+m"(*matrix)
 		: "f"(div)
@@ -249,22 +247,19 @@ void MatrixSet (float *matrix, int x, int y, float value)	// TODO
 
 void MatrixCopy (float* matrixDST, const float* matrixSRC)
 {
-	matrixDST[0] = matrixSRC[0];
-	matrixDST[1] = matrixSRC[1];
-	matrixDST[2] = matrixSRC[2];
-	matrixDST[3] = matrixSRC[3];
-	matrixDST[4] = matrixSRC[4];
-	matrixDST[5] = matrixSRC[5];
-	matrixDST[6] = matrixSRC[6];
-	matrixDST[7] = matrixSRC[7];
-	matrixDST[8] = matrixSRC[8];
-	matrixDST[9] = matrixSRC[9];
-	matrixDST[10] = matrixSRC[10];
-	matrixDST[11] = matrixSRC[11];
-	matrixDST[12] = matrixSRC[12];
-	matrixDST[13] = matrixSRC[13];
-	matrixDST[14] = matrixSRC[14];
-	matrixDST[15] = matrixSRC[15];
+	__asm__ volatile (
+		"lv.q C000,  0 + %1\n"
+		"sv.q C000,  0 + %0\n"
+
+		"lv.q C010, 16 + %1\n"
+		"sv.q C010, 16 + %0\n"
+
+		"lv.q C020, 32 + %1\n"
+		"sv.q C020, 32 + %0\n"
+
+		"lv.q C030, 48 + %1\n"
+		"sv.q C030, 48 + %0\n"
+		: "+m"(*matrixDST) : "m"(*matrixSRC));
 
 }
 

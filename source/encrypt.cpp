@@ -46,6 +46,7 @@ void _KEY1::init(u32 idcode, u8 level, u8 modulo)
 
 void _KEY1::applyKeycode(u8 modulo)
 {
+
 	encrypt(&keyCode[1]);
 	encrypt(&keyCode[0]);
 	

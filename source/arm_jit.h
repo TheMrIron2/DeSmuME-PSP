@@ -46,6 +46,12 @@ struct JIT_struct
 
 	static uintptr_t *JIT_MEM[2][0x4000];
 };
+
+struct optimiz{
+	bool skipL = false;
+	bool skipS = false;
+};
+
 extern CACHE_ALIGN JIT_struct JIT;
 #define JIT_COMPILED_FUNC(adr, PROCNUM) JIT.JIT_MEM[PROCNUM][((adr)&0x0FFFC000)>>14][((adr)&0x00003FFE)>>1]
 #define JIT_COMPILED_FUNC_PREMASKED(adr, PROCNUM, ofs) JIT.JIT_MEM[PROCNUM][(adr)>>14][(((adr)&0x00003FFE)>>1)+ofs]

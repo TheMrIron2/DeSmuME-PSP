@@ -105,7 +105,8 @@ static u32 isqrt (u64 x) {
 
 	u64   squaredbit, remainder, root;
 
-	if (x < 1) return 0;
+	if (x <  1) return 0;
+	if (x == 1) return 1;
 
 	/* Load the binary constant 01 00 00 ... 00, where the number
 	 * of zero bits to the right of the single one bit
@@ -854,13 +855,14 @@ static inline void MMU_VRAMmapControl(u8 block, u8 VRAMBankCnt)
 	MMU_struct::TextureInfo oldTexInfo = MMU.texInfo;
 
 	//unmap everything
-	MMU_VRAM_unmap_all();
+	//MMU_VRAM_unmap_all();
 
 	//unmap VRAM_BANK_C and VRAM_BANK_D from arm7. theyll get mapped again in a moment if necessary
 	T1WriteByte(MMU.MMU_MEM[ARMCPU_ARM7][0x40], 0x240, 0);
 
 	//write the new value to the reg
 	T1WriteByte(MMU.MMU_MEM[ARMCPU_ARM9][0x40], 0x240 + block, VRAMBankCnt);
+
 
 	//refresh all bank settings
 	//zero XX-XX-200X (long before jun 2012)
@@ -887,7 +889,7 @@ static inline void MMU_VRAMmapControl(u8 block, u8 VRAMBankCnt)
 	MMU_VRAMmapRefreshBank<VRAM_BANK_D>();
 
 	//printf(vramConfiguration.describe().c_str());
-	//printf("vram remapped at vcount=%d\n",nds.VCount);
+	//printf("vram remapped at vcount=%d\n",nds.hw_status.VCount);
 
 	//if texInfo changed, trigger notifications
 	if(memcmp(&oldTexInfo,&MMU.texInfo,sizeof(MMU_struct::TextureInfo)))
@@ -912,6 +914,7 @@ static inline void MMU_VRAMmapControl(u8 block, u8 VRAMBankCnt)
 	//...
 	//note that the "unexpected mirroring" items above may at some point rely on being executed in a certain order.
 	//(sequentially A..I)
+	
 
 	const int types[] = {VRAM_PAGE_ABG,VRAM_PAGE_BBG,VRAM_PAGE_AOBJ,VRAM_PAGE_BOBJ};
 	const int sizes[] = {32,8,16,8};
@@ -1164,21 +1167,24 @@ static void execsqrt() {
 
 	if (mode) { 
 		const u64 v = T1ReadQuad(MMU.MMU_MEM[ARMCPU_ARM9][0x40], 0x2B8);
-		ret = cached_sqrt[v];
+		ret = isqrt(v);
+		/*ret = cached_sqrt[v];
 
 		if (!ret && v != 0) {
 			ret = isqrt(v);
 			cached_sqrt[v] = ret;
-		}
+		}*/
 
 	} else {
 		const u32 v = T1ReadLong(MMU.MMU_MEM[ARMCPU_ARM9][0x40], 0x2B8);
-		ret = cached_sqrt[v];
+		
+		ret = isqrt(v);
+		/*ret = cached_sqrt[v];
 
 		if (!ret && v != 0){
 			ret = (int)sceFpuSqrt((float)v);
 			cached_sqrt[v] = ret;
-		}
+		}*/
 	}
 
 	//clear the result while the sqrt unit is busy
@@ -1355,12 +1361,12 @@ u16 DSI_TSC::read16()
 		switch(reg_selection)
 		{
 		case 9:
-			if(nds.isTouch) 
+			if(nds.hw_status.Touching) 
 				return 0;
 			else return 0x40;
 			break;
 		case 14:
-			if(nds.isTouch) 
+			if(nds.hw_status.Touching)
 				return 0;
 			else return 0x02;
 			break;
@@ -1466,7 +1472,6 @@ void FASTCALL MMU_writeToGCControl(u32 val)
 
 	int dbsize = (val>>24)&7;
 	static int gcctr=0;
-	//GCLOG("[GC] [%07d] GCControl: %08X (dbsize:%d)\n",gcctr,val,dbsize);
 	gcctr++;
 	
 	GCBUS_Controller& card = MMU.dscard[PROCNUM];
@@ -1506,18 +1511,10 @@ void FASTCALL MMU_writeToGCControl(u32 val)
 	{
 		//GCLOG("[GC] command:"); rawcmd.print();
 		slot1_device->write_command(PROCNUM, rawcmd);
-
-		/*INFO("WRITE: %02X%02X%02X%02X%02X%02X%02X%02X ", 
-			rawcmd.bytes[0], rawcmd.bytes[1], rawcmd.bytes[2], rawcmd.bytes[3],
-			rawcmd.bytes[4], rawcmd.bytes[5], rawcmd.bytes[6], rawcmd.bytes[7]);
-		INFO("FROM: %08X ", (PROCNUM ? NDS_ARM7:NDS_ARM9).instruct_adr);
-		INFO("1A4: %08X ", val);
-		INFO("SIZE: %08X\n", blocksize);*/
 	}
 	else
 	{
 		T1WriteLong(MMU.MMU_MEM[PROCNUM][0x40], 0x1A4, val & 0x7F7FFFFF);
-		//GCLOG("SCUTTLE????\n");
 		return;
 	}
 
@@ -1536,6 +1533,9 @@ void FASTCALL MMU_writeToGCControl(u32 val)
 
 	// Launch DMA if start flag was set to "DS Cart"
 	triggerDma(EDMAMode_Card);
+	
+	//
+	//NDS_RescheduleReadSlot1(PROCNUM,blocksize);
 }
 
 /*template<int PROCNUM>
@@ -1583,7 +1583,7 @@ void MMU_writeToGC(u32 val)
 // ====================================================================== REG_SPIxxx
 static void CalculateTouchPressure(int pressurePercent, u16 &z1, u16& z2)
 {
-	bool touch = nds.isTouch!=0;
+	bool touch = nds.hw_status.Touching!=0;
 	if(!touch)
 	{
 		z1 = z2 = 0;
@@ -1736,18 +1736,7 @@ void FASTCALL MMU_writeToSPIData(u16 val)
 				break;
 
 				case TSC_MEASURE_Y:
-					//counter the number of adc touch coord reads and jitter it after a while to simulate a shaky human hand or multiple reads
-					//this is actually important for some games.. seemingly due to bugs.
-					nds.adc_jitterctr++;
-					if(nds.adc_jitterctr == 25)
-					{
-						nds.adc_jitterctr = 0;
-						if (nds.stylusJitter)
-						{
-							nds.adc_touchY ^= 16;
-							nds.adc_touchX ^= 16;
-						}
-					}
+
 					if(MMU.SPI_CNT&(1<<11))
 					{
 						if(partie)
@@ -2023,14 +2012,14 @@ static void writereg_POWCNT1(const int size, const u32 adr, const u32 val) {
 			nds.power1.dispswap = BIT7(val);
 			if(nds.power1.dispswap)
 			{
-				//printf("Main core on top (vcount=%d)\n",nds.VCount);
+				//printf("Main core on top (vcount=%d)\n",nds.hw_status.VCount);
 				MainScreen.offset = 0;
-				SubScreen.offset = 192;
+				SubScreen.offset = 512;
 			}
 			else
 			{
-				//printf("Main core on bottom (vcount=%d)\n",nds.VCount);
-				MainScreen.offset = 192;
+				//printf("Main core on bottom (vcount=%d)\n",nds.hw_status.VCount);
+				MainScreen.offset = 512;
 				SubScreen.offset = 0;
 			}	
 			break;
@@ -2190,7 +2179,7 @@ u32 TGXSTAT::read32()
 	
 	ret |= ((gxfifo_irq & 0x3) << 30); //user's irq flags
 
-	//printf("vc=%03d Returning gxstat read: %08X (isSwapBuffers=%d)\n",nds.VCount,ret,isSwapBuffers);
+	//printf("vc=%03d Returning gxstat read: %08X (isSwapBuffers=%d)\n",nds.hw_status.VCount,ret,isSwapBuffers);
 
 	//ret = (2 << 8);
 	//INFO("gxSTAT 0x%08X (proj %i, pos %i)\n", ret, _hack_getMatrixStackLevel(1), _hack_getMatrixStackLevel(2));
@@ -2482,7 +2471,7 @@ void DmaController::exec()
 
 		if(triggered)
 		{
-			//if(procnum==0) printf("vc=%03d %08lld trig type %d dma#%d w/words %d at src:%08X dst:%08X gxf:%d",nds.VCount,nds_timer,startmode,chan,wordcount,saddr,daddr,gxFIFO.size);
+			//if(procnum==0) printf("vc=%03d %08lld trig type %d dma#%d w/words %d at src:%08X dst:%08X gxf:%d",nds.hw_status.VCount,nds_timer,startmode,chan,wordcount,saddr,daddr,gxFIFO.size);
 			running = TRUE;
 			paused = FALSE;
 			if(procnum == ARMCPU_ARM9) doCopy<ARMCPU_ARM9>();
@@ -2508,7 +2497,7 @@ void DmaController::doCopy()
 		todo = 128; //this is a hack. maybe an alright one though. it should be 4 words at a time. this is a whole scanline
 	
 		//apparently this dma turns off after it finishes a frame
-		if(nds.VCount==191) enable = 0;
+		if(nds.hw_status.VCount==191) enable = 0;
 	}
 
 	if(startmode == EDMAMode_Card) todo = MMU.dscard[PROCNUM].transfer_count / sz;
@@ -2561,7 +2550,7 @@ void DmaController::doCopy()
 			time_elapsed += _MMU_accesstime<PROCNUM,MMU_AT_DMA,32,MMU_AD_READ,TRUE>(src,true);
 			time_elapsed += _MMU_accesstime<PROCNUM,MMU_AT_DMA,32,MMU_AD_WRITE,TRUE>(dst,true);
 			u32 temp = _MMU_read32(procnum,MMU_AT_DMA,src);
-			_MMU_write32(procnum,MMU_AT_DMA,dst, temp);
+			_MMU_write32(procnum,MMU_AT_DMA,dst, temp);   
 			dst += dstinc;
 			src += srcinc;
 		}
@@ -3515,7 +3504,7 @@ void FASTCALL _MMU_ARM9_write08(u32 adr, u8 val)
 			case 0x04FFF000:
 				if(nds.ensataEmulation)
 				{
-					//printf("%c",val);
+					printf("%c",val);
 					fflush(stdout);
 				}
 				break;
@@ -4593,13 +4582,11 @@ void FASTCALL _MMU_ARM9_write32(u32 adr, u32 val)
 	adr = MMU_LCDmap<ARMCPU_ARM9>(adr, unmapped, restricted);
 	if(unmapped) return;
 
-#ifdef HAVE_JIT
 	if (JIT_MAPPED(adr, ARMCPU_ARM9))
 	{
 		JIT_COMPILED_FUNC_PREMASKED(adr, ARMCPU_ARM9, 0) = 0;
 		JIT_COMPILED_FUNC_PREMASKED(adr, ARMCPU_ARM9, 1) = 0;
 	}
-#endif
 
 	// Removed the &0xFF as they are implicit with the adr&0x0FFFFFFF [shash]
 	T1WriteLong(MMU.MMU_MEM[ARMCPU_ARM9][adr>>20], adr&MMU.MMU_MASK[ARMCPU_ARM9][adr>>20], val);
@@ -4640,8 +4627,8 @@ u8 FASTCALL _MMU_ARM9_read08(u32 adr)
 				break;
 			case REG_DISPA_DISPSTAT+1:
 				break;
-			case REG_DISPx_VCOUNT: return nds.VCount & 0xFF;
-			case REG_DISPx_VCOUNT+1: return (nds.VCount>>8) & 0xFF;
+			case REG_DISPx_VCOUNT: return nds.hw_status.VCount & 0xFF;
+			case REG_DISPx_VCOUNT+1: return (nds.hw_status.VCount>>8) & 0xFF;
 
 			case REG_SQRTCNT: return (MMU_new.sqrt.read16() & 0xFF);
 			case REG_SQRTCNT+1: return ((MMU_new.sqrt.read16()>>8) & 0xFF);
@@ -4704,7 +4691,6 @@ u8 FASTCALL _MMU_ARM9_read08(u32 adr)
 			case REG_DISPA_DISP3DCNT+3: return readreg_DISP3DCNT(8,adr);
 
 			case REG_KEYINPUT:
-				LagFrameFlag=0;
 				break;
 		}
 	}
@@ -4766,7 +4752,7 @@ u16 FASTCALL _MMU_ARM9_read16(u32 adr)
 					return 270;
 				} 
 				else 
-					return nds.VCount;
+					return nds.hw_status.VCount;
 
 			// ============================================= 3D
 			case eng_3D_RAM_COUNT:
@@ -4807,7 +4793,6 @@ u16 FASTCALL _MMU_ARM9_read16(u32 adr)
 			case REG_DISPA_DISP3DCNT+2: return readreg_DISP3DCNT(16,adr);
 
 			case REG_KEYINPUT:
-				LagFrameFlag=0;
 				break;
 
 			//fog table: write only
@@ -4869,7 +4854,7 @@ u32 FASTCALL _MMU_ARM9_read32(u32 adr)
 				break;
 
 			case REG_DISPx_VCOUNT:
-				return nds.VCount;
+				return nds.hw_status.VCount;
 
 			//despite these being 16bit regs,
 			//Dolphin Island Underwater Adventures uses this amidst seemingly reasonable divs so we're going to emulate it.
@@ -4959,7 +4944,6 @@ u32 FASTCALL _MMU_ARM9_read32(u32 adr)
 			case REG_DISPA_DISP3DCNT: return readreg_DISP3DCNT(32,adr);
 
 			case REG_KEYINPUT:
-				LagFrameFlag=0;
 				break;
 		}
 		return T1ReadLong_guaranteedAligned(MMU.MMU_MEM[ARMCPU_ARM9][adr>>20], adr & MMU.MMU_MASK[ARMCPU_ARM9][adr>>20]);
@@ -5129,14 +5113,14 @@ void FASTCALL _MMU_ARM7_write16(u32 adr, u16 val)
 		switch(adr)
 		{
 		case REG_DISPA_VCOUNT:
-			if (nds.VCount >= 202 && nds.VCount <= 212)
+			if (nds.hw_status.VCount >= 202 && nds.hw_status.VCount <= 212)
 			{
-				//printf("VCOUNT set to %i (previous value %i)\n", val, nds.VCount);
-				nds.VCount = val;
+				//printf("VCOUNT set to %i (previous value %i)\n", val, nds.hw_status.VCount);
+				nds.hw_status.VCount = val;
 			}
 			/*
 			else
-				printf("Attempt to set VCOUNT while not within 202-212 (%i), ignored\n", nds.VCount);
+				printf("Attempt to set VCOUNT while not within 202-212 (%i), ignored\n", nds.hw_status.VCount);
 			*/
 			return;
 
@@ -5288,8 +5272,6 @@ void FASTCALL _MMU_ARM7_write32(u32 adr, u32 val)
 
 	adr &= 0x0FFFFFFC;
 
-	mmu_log_debug_ARM7(adr, "(write32) 0x%08X", val);
-
 	if (adr < 0x02000000) return; //can't write to bios or entire area below main memory
 
 
@@ -5409,8 +5391,6 @@ u8 FASTCALL _MMU_ARM7_read08(u32 adr)
 {
 	adr &= 0x0FFFFFFF;
 
-	mmu_log_debug_ARM7(adr, "(read08) 0x%02X", MMU.MMU_MEM[ARMCPU_ARM7][(adr>>20)&0xFF][adr&MMU.MMU_MASK[ARMCPU_ARM7][(adr>>20)&0xFF]]);
-
 	if (adr < 0x4000)
 	{
 		//the ARM7 bios can't be read by instructions outside of itself.
@@ -5454,8 +5434,8 @@ u8 FASTCALL _MMU_ARM7_read08(u32 adr)
 			case REG_IF+2: return (MMU.gen_IF<ARMCPU_ARM7>()>>16);
 			case REG_IF+3: return (MMU.gen_IF<ARMCPU_ARM7>()>>24);
 
-			case REG_DISPx_VCOUNT: return nds.VCount&0xFF;
-			case REG_DISPx_VCOUNT+1: return (nds.VCount>>8)&0xFF;
+			case REG_DISPx_VCOUNT: return nds.hw_status.VCount&0xFF;
+			case REG_DISPx_VCOUNT+1: return (nds.hw_status.VCount>>8)&0xFF;
 
 			case REG_WRAMSTAT: return MMU.WRAMCNT;
 		}
@@ -5473,8 +5453,6 @@ u8 FASTCALL _MMU_ARM7_read08(u32 adr)
 u16 FASTCALL _MMU_ARM7_read16(u32 adr)
 {
 	adr &= 0x0FFFFFFE;
-
-	mmu_log_debug_ARM7(adr, "(read16) 0x%04X", T1ReadWord(MMU.MMU_MEM[ARMCPU_ARM7][(adr>>20)&0xFF], adr & MMU.MMU_MASK[ARMCPU_ARM7][(adr>>20)&0xFF]));
 
 	if (adr < 0x4000)
 	{
@@ -5512,7 +5490,7 @@ u16 FASTCALL _MMU_ARM7_read16(u32 adr)
 				return ret;
 			}
 
-			case REG_DISPx_VCOUNT: return nds.VCount;
+			case REG_DISPx_VCOUNT: return nds.hw_status.VCount;
 			case REG_RTC: return rtcRead();
 			case REG_IME: return (u16)MMU.reg_IME[ARMCPU_ARM7];
 				
@@ -5548,7 +5526,7 @@ u16 FASTCALL _MMU_ARM7_read16(u32 adr)
 				{
 					//this is gross. we should generate this whole reg instead of poking it in ndssystem
 					u16 ret = MMU.ARM7_REG[0x136];
-					if(nds.isTouch) 
+					if(nds.hw_status.Touching) 
 						ret &= ~64;
 					else ret |= 64;
 					return ret;
@@ -5605,7 +5583,7 @@ u32 FASTCALL _MMU_ARM7_read32(u32 adr)
 		switch(adr)
 		{
 			case REG_RTC: return (u32)rtcRead();
-			case REG_DISPx_VCOUNT: return nds.VCount;
+			case REG_DISPx_VCOUNT: return nds.hw_status.VCount;
 
 			case REG_IME : 
 				return MMU.reg_IME[ARMCPU_ARM7];
@@ -5619,8 +5597,8 @@ u32 FASTCALL _MMU_ARM7_read32(u32 adr)
 			case REG_TM2CNTL :
 			case REG_TM3CNTL :
 			{
-				u32 val = T1ReadWord(MMU.MMU_MEM[ARMCPU_ARM7][0x40], (adr + 2) & 0xFFF);
-				return MMU.timer[ARMCPU_ARM7][(adr&0xF)>>2] | (val<<16);
+				u32 hi = T1ReadWord(MMU.ARM9_REG, (adr + 2) & 0xFF);
+				return (hi<<16)|read_timer(ARMCPU_ARM9,(adr&0xF)>>2);
 			}	
 			//case REG_GCROMCTRL:
 			//	return MMU_readFromGCControl<ARMCPU_ARM7>();

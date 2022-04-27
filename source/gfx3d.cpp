@@ -62,6 +62,8 @@ u32 max_polys, max_verts;
 #include "GPU_OSD.h"
 #endif
 
+#define FLUSHMODE_HACK
+
 
 /*
 thoughts on flush timing:
@@ -248,6 +250,8 @@ public:
 //although maybe the true culprit was charging the cpu less time for the dma.
 #define GFX_DELAY(x) NDS_RescheduleGXFIFO(1);
 #define GFX_DELAY_M2(x) NDS_RescheduleGXFIFO(1);
+
+#define V_GFX_DELAY(x) NDS_RescheduleGXFIFO(x);
 
 using std::max;
 using std::min;
@@ -680,7 +684,18 @@ void gfx3d_reset()
 //=================================================================================
 
 
-inline float vec3dot(float* a, float* b) {
+float vec3dot(float* a, float* b) {
+	/*float res = 0;
+
+	__asm__ volatile (
+		"lv.q   C000,  %1			\n"
+		"lv.q   C100,  %2			\n"
+		"vhdp.t S000, C000, C100	\n"
+		"sv.s   S000,  %0			\n"
+		: "+m"(res) : "m"(*a), "m"(*b)
+		);
+	
+	return res;*/
 	return (((a[0]) * (b[0])) + ((a[1]) * (b[1])) + ((a[2]) * (b[2])));
 }
 
@@ -700,9 +715,11 @@ static void SetVertex()
 
 	if (texCoordinateTransform == 3)
 	{
+
 		last_s = ((coord[0] * mtxCurrent[3][0] +
 			coord[1] * mtxCurrent[3][4] +
 			coord[2] * mtxCurrent[3][8]) + _s * 16.0f) / 16.0f;
+
 		last_t = ((coord[0] * mtxCurrent[3][1] +
 			coord[1] * mtxCurrent[3][5] +
 			coord[2] * mtxCurrent[3][9]) + _t * 16.0f) / 16.0f;
@@ -744,9 +761,9 @@ static void SetVertex()
 	vert.coord[2] = coordTransformed[2];
 	vert.coord[3] = coordTransformed[3];
 	
-	vert.color[0] = GFX3D_5TO6(colorRGB[0]);
-	vert.color[1] = GFX3D_5TO6(colorRGB[1]);
-	vert.color[2] = GFX3D_5TO6(colorRGB[2]);
+	vert.color[0] = (colorRGB[0]);
+	vert.color[1] = (colorRGB[1]);
+	vert.color[2] = (colorRGB[2]);
 	tempVertInfo.map[tempVertInfo.count] = vertlist->count + tempVertInfo.count - continuation;
 	tempVertInfo.count++;
 
@@ -1529,10 +1546,10 @@ static BOOL gfx3d_glBoxTest(u32 v)
 	MMU_new.gxstat.tr = 0;		// clear boxtest bit
 	MMU_new.gxstat.tb = 1;		// busy
 
-	BTcoords[BTind++] = v & 0xFFFF;
-	BTcoords[BTind++] = v >> 16;
+	/*BTcoords[BTind++] = v & 0xFFFF;
+	BTcoords[BTind++] = v >> 16;*/
 
-	//BTind++;BTind++;
+	BTind++;BTind++;
 
 	if (BTind < 5) return FALSE;
 	BTind = 0;
@@ -1556,7 +1573,7 @@ static BOOL gfx3d_glBoxTest(u32 v)
 	//nanostray title, ff4, ice age 3 depend on this and work
 	//garfields nightmare and strawberry shortcake DO DEPEND on the overflow behavior.
 
-	u16 ux = BTcoords[0];
+	/*u16 ux = BTcoords[0];
 	u16 uy = BTcoords[1];
 	u16 uz = BTcoords[2];
 	u16 uw = BTcoords[3];
@@ -1655,11 +1672,11 @@ static BOOL gfx3d_glBoxTest(u32 v)
 	if(MMU_new.gxstat.tr == 0)
 	{
 		//printf("%06d FAIL %d\n",boxcounter,gxFIFO.size);
-	}
+	}*/
 	
 	//Xiro 22/09/2020
 	//Yeah I know this is cheating, but now we need speed and maybe this could help a bit..
-	//MMU_new.gxstat.tr = 1;
+	MMU_new.gxstat.tr = 1;
 	
 	return TRUE;
 }
@@ -2202,40 +2219,30 @@ void gfx3d_execute3D()
 
 	//if(!my_config.Render3D) return;
 
-	const int HACK_FIFO_BATCH_SIZE = 128;
-
-	/*if (my_config.Disable_3D_calc) {
-			if (GFX_PIPErecv(&cmd, &param)) {
-					GFX_DELAY(1);
-					MMU.gfx3dCycles = nds_timer + 2;
-			}else
-				return;
-		return;
-	}*/
+	const u8 HACK_FIFO_BATCH_SIZE = 64;
 
 	//this is a SPEED HACK
 	//fifo is currently emulated more accurately than it probably needs to be.
 	//without this batch size the emuloop will escape way too often to run fast.
-	
+	u8 cost = 0;
 
 	for(u8 i=HACK_FIFO_BATCH_SIZE;--i;) 
 	{
-		if(GFX_PIPErecv(&cmd, &param))
+		if(likely(GFX_PIPErecv(&cmd, &param)))
 		{
 			//if (isSwapBuffers) printf("Executing while swapbuffers is pending: %d:%08X\n",cmd,param);
 
 			//since we did anything at all, incur a pipeline motion cost.
 			//also, we can't let gxfifo sequencer stall until the fifo is empty.
 			//see...
-			GFX_DELAY(1); 
 
 			//..these guys will ordinarily set a delay, but multi-param operations won't
 			//for the earlier params.
 			//printf("%05d:%03d:%12lld: executed 3d: %02X %08X\n",currFrameCounter, nds.VCount, nds_timer , cmd, param);
 		//	if(HasTo_ogfx3d_execute(cmd,param))
-				gfx3d_execute(cmd, param);
+			gfx3d_execute(cmd, param);
 
-
+			cost++;
 			//this is a COMPATIBILITY HACK.
 			//this causes 3d to take virtually no time whatsoever to execute.
 			//this was done for marvel nemesis, but a similar family of 
@@ -2243,10 +2250,11 @@ void gfx3d_execute3D()
 			//the true answer is probably dma bus blocking.. but lets go ahead and try this and
 			//check the compatibility, at the very least it will be nice to know if any games suffer from
 			//3d running too fast
-				MMU.gfx3dCycles = nds_timer + 1;
+			MMU.gfx3dCycles = nds_timer + 2;
 		} else break;
 	}
-
+	
+	if (cost) V_GFX_DELAY(cost); 
 }
 
 void gfx3d_glFlush(u32 v)
@@ -2313,12 +2321,12 @@ static inline bool gfx3d_zsort_compare(int num1, int num2)
 	const POLY& poly1 = polylist->list[num1];
 	const POLY& poly2 = polylist->list[num2];
 
-	if (poly1.maxz != poly2.maxz)
+	/*if (poly1.maxz != poly2.maxz)
 		return poly1.maxz < poly2.maxz;
 	if (poly1.minz != poly2.minz)
-		return poly1.minz < poly2.minz;
-
-	return num1 < num2;
+	*/	
+	return poly1.minz <= poly2.minz;
+	//return num1 < num2;
 }
 
 static bool gfx3d_ysort_compare(int num1, int num2)
@@ -2339,6 +2347,8 @@ static void gfx3d_doFlush()
 	//the renderer will get the lists we just built
 	gfx3d.polylist = polylist;
 	gfx3d.vertlist = vertlist;
+
+	int polycount = polylist->count;
 
 	//and also our current render state
 	if(BIT1(control)) gfx3d.state.shading = GFX3D_State::HIGHLIGHT;
@@ -2373,8 +2383,8 @@ static void gfx3d_doFlush()
 		gfx3d.renderState.enableFog = false;
 	
 	gfx3d.state.activeFlushCommand = gfx3d.state.pendingFlushCommand;
-
-	int polycount = polylist->count;
+	
+	//printf("%d\n",polycount);
 #ifdef _SHOW_VTX_COUNTERS
 	max_polys = max((u32)polycount, max_polys);
 	max_verts = max((u32)vertlist->count, max_verts);
@@ -2394,13 +2404,14 @@ static void gfx3d_doFlush()
 		// If both of these questions answer to yes, then how does the NDS handle a NaN?
 		// For now, simply prevent w from being zero.
 		POLY& poly = polylist->list[i];
-		float verty = vertlist->list[poly.vertIndexes[0]].y;
+		//float verty = vertlist->list[poly.vertIndexes[0]].y;
 		float vertz = vertlist->list[poly.vertIndexes[0]].z;
-		float vertw = (vertlist->list[poly.vertIndexes[0]].w != 0.0f) ? vertlist->list[poly.vertIndexes[0]].w : 0.00000001f;
+		//float vertw = (vertlist->list[poly.vertIndexes[0]].w != 0.0f) ? vertlist->list[poly.vertIndexes[0]].w : 0.00000001f;
 	//	verty = 1.0f - (verty + vertw) / (2 * vertw);
-		vertz = 1.0f - (vertz + vertw) / (2 * vertw);
+		
+		vertz = 1.f / vertz;
 
-		poly.miny = poly.maxy = verty;
+		//poly.miny = poly.maxy = verty;
 		poly.minz = poly.maxz = vertz;
 
 		for (int j = 1; j < poly.type; j++)
@@ -2408,10 +2419,10 @@ static void gfx3d_doFlush()
 			//verty = vertlist->list[poly.vertIndexes[j]].y;
 			vertz = vertlist->list[poly.vertIndexes[j]].z;
 
-			vertw = (vertlist->list[poly.vertIndexes[j]].w != 0.0f) ? vertlist->list[poly.vertIndexes[j]].w : 0.00000001f;
+			//vertw = (vertlist->list[poly.vertIndexes[j]].w != 0.0f) ? vertlist->list[poly.vertIndexes[j]].w : 0.00000001f;
 
 			//verty = 1.0f - (verty + vertw) / (2 * vertw);
-			vertz = 1.0f - (vertz + vertw) / (2 * vertw);
+			vertz = 1.f / vertz;
 
 			//poly.miny = min(poly.miny, verty);
 			//poly.maxy = max(poly.maxy, verty);
@@ -2495,17 +2506,6 @@ void gfx3d_VBlankEndSignal(bool skipFrame)
 	if(skipFrame) return;
 
 	drawPending = FALSE;
-
-	//HCF
-	/**
-	if(!CommonSettings.showGpu.main)
-	{
-		memset(gfx3d_convertedScreen,0,sizeof(gfx3d_convertedScreen));
-		return;
-	}
-	**/
-
-	//EMU_SCREEN();
 	
 	gpu3D->NDS_3D_Render();
 }

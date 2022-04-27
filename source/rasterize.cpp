@@ -86,9 +86,6 @@ CACHE_ALIGN const float divide5bitBy31_LUT[32] = { 0.0,             0.0322580645
 													   0.7741935483871, 0.8064516129032, 0.8387096774194, 0.8709677419355,
 													   0.9032258064516, 0.9354838709677, 0.9677419354839, 1.0 };
 
-
-bool PolyisVisible[POLYLIST_SIZE] = { true };
-
 #ifndef LOWRAM
 struct Vertex __attribute__((aligned(32))) vertices[VERTLIST_SIZE];
 #endif
@@ -168,6 +165,7 @@ public:
 		/*VIEWPORT viewport;
 		viewport.decode(viewportValue);*/
 		//sceGuOffset((viewport.width/2) , (viewport.height / 2));
+		//sceGuViewport(0, 192,512,384);
 		sceGuViewport(0, 192,512,384);
 
 	/*	if (viewport.x != 0)
@@ -175,7 +173,8 @@ public:
 	}
 
 	void SetupTexture(POLY& thePoly) {
-		if (thePoly.texParam == 0 || thePoly.getTexParams().texFormat == TEXMODE_NONE || my_config.Dspr3D) {
+		
+		if (thePoly.texParam == 0 || thePoly.getTexParams().texFormat == TEXMODE_NONE) {
 			sceGuDisable(GU_TEXTURE_2D);
 		}
 		else {
@@ -185,11 +184,11 @@ public:
 			sceGuEnable(GU_TEXTURE_2D);
 			sceGumMatrixMode(GU_TEXTURE);
 
-			sceGuTexFlush();
-			sceGuTexProjMapMode(GU_UV);
+			/*sceGuTexFlush();
+			sceGuTexProjMapMode(GU_UV);*/
 
 			sceGuTexMode(GU_PSM_8888, 0, 0, 0);
-			sceGuTexFilter(GU_NEAREST, GU_NEAREST);
+			//sceGuTexFilter(GU_NEAREST, GU_NEAREST);
 			sceGuTexWrap(BIT16(newTexture->texformat) ? GU_REPEAT : GU_CLAMP, BIT17(newTexture->texformat) ? GU_REPEAT : GU_CLAMP);
 
 			u16 __attribute__((aligned(16))) tbw = newTexture->bufferWidth;
@@ -197,7 +196,6 @@ public:
 			sceGuTexFunc(GU_TFX_REPLACE, GU_TCC_RGBA);
 
 			sceGuTexScale(newTexture->invSizeX, newTexture->invSizeY);
-			sceGuTexOffset(0.0f, 0.0f);
 		}
 	}
 
@@ -252,17 +250,23 @@ public:
 			enableDepthWrite = true;
 		}
 
-		if (gfx3d.renderState.enableAlphaTest && (gfx3d.renderState.alphaTestRef > 0))
+		if (!attr.isOpaque)
 		{
-			sceGuAlphaFunc(GU_GEQUAL, divide5bitBy31_LUT[gfx3d.renderState.alphaTestRef], 1);
-		}
-		else
-		{
-			sceGuAlphaFunc(GU_GREATER, 0, 0);
+			sceGuEnable(GU_ALPHA_TEST);
+			sceGuAlphaFunc(GU_GREATER,0,0xFF);
 		}
 
 	//	sceGuDepthMask(enableDepthWrite);
 	}
+
+	bool setupMat = false;
+
+	
+
+	union{
+		struct{u8 b; u8 g ; u8 r; u8 a;};
+		u32 color;
+	}ArraytoColor;
 
 	template<bool SLI>
 	FORCEINLINE void mainLoop(SoftRasterizerEngine* const engine)
@@ -278,24 +282,26 @@ public:
 		u32 lastPolyAttr = 0;
 		u32 lastViewport = 0xFFFFFFFF;
 
-
 		const size_t polyCount = engine->polylist->count;
 
 		sceGuStart(GU_DIRECT, gulist);
 
 		sceGuEnable(GU_CLIP_PLANES);
 
-		ScePspFMatrix4 _default __attribute__((aligned(16))) = {
-			{ 1, 0, 0, 0},
-			{ 0, 1, 0, 0},
-			{ 0, 0, 1, 0},
-			{ 0, 0, 0, 1}
-		};
+		if (polyCount > 0){
 
-		sceGuSetMatrix(GU_PROJECTION, &_default);
-		sceGuSetMatrix(GU_TEXTURE, &_default);
-		sceGuSetMatrix(GU_MODEL, &_default);
-		sceGuSetMatrix(GU_VIEW, &_default);
+			ScePspFMatrix4 _matrx __attribute__((aligned(16))) = {
+				{1.f, 0, 0, 0},
+				{ 0, 1.f, 0, 0},
+				{ 0, 0, -1.f, 0},
+				{ 0, 0, 0, 1.f}
+			};
+
+			sceGuSetMatrix(GU_PROJECTION, &_matrx);
+			sceGuSetMatrix(GU_TEXTURE, &_matrx);
+			sceGuSetMatrix(GU_MODEL, &_matrx);
+			sceGuSetMatrix(GU_VIEW, &_matrx);
+		}
 
 		//Use VRAM mem to allow 32mb psp to run GU without going out of memory 
 	#ifdef LOWRAM
@@ -332,13 +338,14 @@ public:
 			SetupViewport(poly.viewport);
 		}
 
-		for(int i=0, vertStartIndex = 0;i< polyCount;i++)
+		float Mul_vect[4];
+
+		for(int i=0, vertStartIndex = 0;i< polyCount; i++)
 		{
-
-			//if (!PolyisVisible[i]) continue;
-
 			POLY &poly = engine->polylist->list[engine->indexlist->list[i]];
 			size_t type = /*!poly.isWireframe() ? */GUPrimitiveType[poly.vtxFormat] /*: GU_LINE_STRIP*/;
+
+			bool skip_poly = false;
 
 			int VertSZ = sz[poly.vtxFormat];
 
@@ -350,14 +357,20 @@ public:
 
 				float w = vert.w;
 				float z = vert.z;
+				float y = vert.y;
 
-				if (w < 0 && z < 0) goto skip_vert;
+				if (w < 0) {skip_poly = true; break;}
+
+				ArraytoColor.a = 0xff;
+				ArraytoColor.r = vert.color[2] << 3;
+				ArraytoColor.g = vert.color[1] << 3;
+				ArraytoColor.b = vert.color[0] << 3;
+
+				vertices[j].col =  ArraytoColor.color;
 
 				float x = vert.x;
-				float y = vert.y;
-				
 
-				const float mul_w = (w * 2);
+				const float mul_w = 1/(w * 2);
 
 				vertices[j].u = vert.u;
 				vertices[j].v = vert.v;
@@ -366,13 +379,6 @@ public:
 				vertices[j].y = y + w;
 				vertices[j].z = z + w;
 
-				 float vect[4] = {
-					vertices[j].x,
-					vertices[j].y,
-					vertices[j].z,
-					0
-				};
-
 				float Mul_vect[4] = {
 					mul_w,
 					mul_w,
@@ -380,23 +386,17 @@ public:
 					0
 				};
 
-				__asm__ volatile(
-					".set			push\n"					// save assember option
-					".set			noreorder\n"			// suppress reordering
-					"lv.q			c100, 0 + %2\n"
-					"lv.q			c200, 0 + %1\n"
-					"vdiv.q		    c000, c100, c200\n"
-					"sv.q			c000, 0 + %0\n"
-					".set			pop\n"					// restore assember option
-					: "=m"(*vect)
-					: "m"(*Mul_vect)
-					, "m"(*vect)
-					: "memory"
-					);
-
-				vertices[j].x = vect[0];
-				vertices[j].y = vect[1];
-				vertices[j].z = vect[2];
+				/*__asm__ volatile(
+					"ulv.q			c100, 0 + %2\n"
+					"ulv.q			c200, 0 + %1\n"
+					"vmul.q		    c000, c100, c200\n"
+					"usv.s			s000, 0 + %0\n"
+					"usv.s			s001, 4 + %0\n"
+					"usv.s			s002, 8 + %0\n"
+					: "=m"(vertices[j].x)
+					: "m"(Mul_vect)
+					, "m"(vertices[j].x)
+					);*/
 			}
 			
 			if (lastPolyAttr != poly.polyAttr)
@@ -404,6 +404,8 @@ public:
 				lastPolyAttr = poly.polyAttr;
 				SetupPoly(poly);
 			}
+
+			if (skip_poly) continue;
 
 			if (lastTexParams != poly.texParam || lastTexPalette != poly.texPalette)
 			{
@@ -413,31 +415,24 @@ public:
 				lastTexPalette = poly.texPalette;
 			}
 
-			sceKernelDcacheWritebackInvalidateAll();
+			
 
-			sceGumDrawArray(type, GU_TEXTURE_32BITF | GU_VERTEX_32BITF | GU_TRANSFORM_3D, VertSZ, 0, &vertices[vertStartIndex]);
+			sceKernelDcacheWritebackInvalidateAll();
+			sceGumDrawArray(type, GU_TEXTURE_32BITF|GU_COLOR_8888|GU_VERTEX_32BITF|GU_TRANSFORM_3D, VertSZ, 0, &vertices[vertStartIndex]);
 
 			vertStartIndex += VertSZ;
-
-		
-		//Skip poly if it's offscreen	
-		skip_vert:;
-
 		}
 
-		sceGuDisable(GU_CLIP_PLANES);
+		//sceGuDisable(GU_CLIP_PLANES);
 
 		sceGuScissor(0, 0, SCR_WIDTH, SCR_HEIGHT);
 		
-
 		sceGuFinish();
+
 		sceGuSync(0, 0);
 
 		sceKernelDcacheWritebackInvalidateAll();
-		sceDmacMemcpy((u32*)&_screen[0], (u32*)(sceGeEdramGetAddr() + (int)renderTarget), disp_cpy_sz);
-		sceKernelDcacheWritebackInvalidateAll();
-
-	
+		memcpy_vfpu((u32*)&_screen[0], (u32*)(sceGeEdramGetAddr() + (int)renderTarget), disp_cpy_sz);
 	}
 
 }; //rasterizerUnit
@@ -690,7 +685,7 @@ void inline setupPoly() {
 				: NULL
 		};
 
-		PolyisVisible[i] = (verts[0]->w >= 0 && verts[1]->w >= 0 && verts[2]->w >= 0 && (poly->type == 4 ? verts[3]->w >= 0 : true));
+		//PolyisVisible[i] = (verts[0]->w >= 0 && verts[1]->w >= 0 && verts[2]->w >= 0 && (poly->type == 4 ? verts[3]->w >= 0 : true));
 	}
 }
 

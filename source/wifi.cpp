@@ -1922,7 +1922,7 @@ void Adhoc_msTrigger()
 		Adhoc_FrameHeader header = *(Adhoc_FrameHeader*)ptr;
 
 		// Check the magic string in header
-		if (strncmp(header.magic, ADHOC_MAGIC, 8))
+		if (strcasecmp(header.magic, ADHOC_MAGIC))
 			return;
 
 		// Check the ad-hoc protocol version

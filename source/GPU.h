@@ -35,7 +35,7 @@ struct MMU_struct;
 void gpu_savestate(EMUFILE* os);
 bool gpu_loadstate(EMUFILE* is, int size);
 
-extern volatile u8 GPU_Screen[192 * 256 * 4];
+extern volatile u8 __attribute__((aligned(64))) GPU_Screen[192 * 256 * 4];
 
 /*******************************************************************************
     this structure is for display control,

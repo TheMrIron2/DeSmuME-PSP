@@ -150,6 +150,7 @@ extern u64 nds_timer;
 void NDS_Reschedule();
 void NDS_RescheduleGXFIFO(u32 cost);
 void NDS_RescheduleDMA();
+void NDS_RescheduleReadSlot1(int procnum, int size);
 void NDS_RescheduleTimers();
 
 enum ENSATA_HANDSHAKE
@@ -172,29 +173,45 @@ enum NDS_CONSOLE_TYPE
 
 struct NDSSystem
 {
-	s32 wifiCycle;
-	s32 cycles;
-	u64 timerCycle[2][4];
-	u32 VCount;
-	u32 old;
+	//set if the user requests ensata emulation
+	BOOL ensataEmulation;
+
+	u8 idleFrameCounter;
+
+	struct {
+		u8 speakers, wifi /*(initial value=0)*/;
+	} power2; //POWCNT2
+
+	u16 pad;
+	u16 paddle;
 
 	//raw adc touch coords for old NDS
 	u16 adc_touchX;
 	u16 adc_touchY;
-	s32 adc_jitterctr;
-	BOOL stylusJitter;
 
 	//the DSI returns calibrated touch coords from its TSC (?), so we need to save these separately
 	u16 scr_touchX;
 	u16 scr_touchY;
 
-	//whether the console is using our faked-bootup process
-	BOOL isFakeBooted;
-	
-	BOOL isTouch;
-	u16 pad;
-	
-	u16 paddle;
+	union{  
+
+        struct{            
+            u8 sleeping         : 1;
+            u8 cardEjected      : 1;
+            u8 Touching         : 1;
+
+            u8 fakeBoot    : 1;
+
+            u8 lidStatus   : 1;
+
+			u8 overclock   : 2;
+
+            u16 VCount     : 9;
+        };
+
+        u16 val;
+
+    }hw_status;
 
 	u8 *FW_ARM9BootCode;
 	u8 *FW_ARM7BootCode;
@@ -203,9 +220,18 @@ struct NDSSystem
 	u32 FW_ARM9BootCodeSize;
 	u32 FW_ARM7BootCodeSize;
 
-	BOOL sleeping;
-	BOOL cardEjected;
 	u32 freezeBus;
+	s32 cycles;
+
+	//there is a hack in the ipc sync for ensata. this tracks its state
+	u32 ensataIpcSyncCounter;
+
+	//maintains the state of the ensata handshaking protocol
+	u32 ensataHandshake;
+	
+	struct {
+		u8 lcd, gpuMain, gfx3d_render, gfx3d_geometry, gpuSub, dispswap;
+	} power1; //POWCNT1
 
 	//this is not essential NDS runtime state.
 	//it was perhaps a mistake to put it here.
@@ -213,44 +239,25 @@ struct NDSSystem
 	//maybe I should move it.
 	s32 idleCycles[2];
 	s32 runCycleCollector[2][16];
-	s32 idleFrameCounter;
-	s32 cpuloopIterationCount; //counts the number of times during a frame that a reschedule happened
+
+	u64 timerCycle[2][4];
+
+	bool isInVblank() const { return hw_status.VCount >= 192; } 
+	bool isIn3dVblank() const { return hw_status.VCount >= 192 && hw_status.VCount<215; } 
 
 	//console type must be copied in when the system boots. it can't be changed on the fly.
-	int ConsoleType;
-	bool Is_DSI() { return ConsoleType == NDS_CONSOLE_TYPE_DSI; }
-	bool Is_DebugConsole() { return _DebugConsole!=0; }
-	BOOL _DebugConsole;
-	
-	//set if the user requests ensata emulation
-	BOOL ensataEmulation;
-
-	//there is a hack in the ipc sync for ensata. this tracks its state
-	u32 ensataIpcSyncCounter;
-
-	//maintains the state of the ensata handshaking protocol
-	u32 ensataHandshake;
-
-	struct {
-		u8 lcd, gpuMain, gfx3d_render, gfx3d_geometry, gpuSub, dispswap;
-	} power1; //POWCNT1
-
-	struct {
-		u8 speakers, wifi /*(initial value=0)*/;
-	} power2; //POWCNT2
-
-	bool isInVblank() const { return VCount >= 192; } 
-	bool isIn3dVblank() const { return VCount >= 192 && VCount<215; } 
+	bool Is_DSI() { return false; }
+	bool Is_DebugConsole() { return false; }
 };
 
 /** /brief A touchscreen calibration point.
  */
 struct NDS_fw_touchscreen_cal {
-  u16 adc_x;
-  u16 adc_y;
-
   u8 screen_x;
   u8 screen_y;
+
+  u16 adc_x;
+  u16 adc_y;
 };
 
 #define MAX_FW_NICKNAME_LENGTH 10
@@ -392,9 +399,9 @@ struct UserButtons : buttonstruct<bool>
 };
 struct UserTouch
 {
+	bool isTouch;
 	u16 touchX;
 	u16 touchY;
-	bool isTouch;
 };
 struct UserMicrophone
 {
@@ -406,8 +413,6 @@ struct UserInput
 	UserTouch touch;
 	UserMicrophone mic;
 };
-
-void ExecDMA_TIMER();
 
 // set physical user input
 // these functions merely request the input to be changed.
@@ -531,15 +536,13 @@ extern struct TCommonSettings {
 
 		//HCF Let's test Interpolation Linear
 		//, spuInterpolationMode(1)
-		, spuInterpolationMode(0)
+		, spuInterpolationMode(1)
 
 		, manualBackupType(0)
 		, autodetectBackupMethod(0)
 		, spu_captureMuted(false)
 		, spu_advanced(false)
 		, StylusPressure(50)
-		, ConsoleType(NDS_CONSOLE_TYPE_FAT)
-		, StylusJitter(false)
 		, backupSave(false)
 
 		//HCF Let's test Sync sound
@@ -552,9 +555,6 @@ extern struct TCommonSettings {
 		strcpy(ARM7BIOS, "biosnds7.bin");
 		strcpy(Firmware, "firmware.bin");
 
-		/* WIFI mode: adhoc = 0, infrastructure = 1 */
-		wifi.mode = 1;
-		wifi.infraBridgeAdapter = 0;
 
 		for(int i=0;i<16;i++)
 			spu_muteChannels[i] = false;
@@ -597,7 +597,6 @@ extern struct TCommonSettings {
 	bool BootFromFirmware;
 	NDS_fw_config_data fw_config;
 
-	NDS_CONSOLE_TYPE ConsoleType;
 	bool DebugConsole;
 	bool EnsataEmulation;
 	
@@ -608,7 +607,6 @@ extern struct TCommonSettings {
 	bool rigorous_timing;
 
 	int StylusPressure;
-	bool StylusJitter;
 
 	bool dispLayers[2][5];
 	
@@ -616,11 +614,6 @@ extern struct TCommonSettings {
 
 	bool use_jit;
 	u32	jit_max_block_size;
-	
-	struct _Wifi {
-		int mode;
-		int infraBridgeAdapter;
-	} wifi;
 
 	enum MicMode
 	{
@@ -648,34 +641,10 @@ extern struct TCommonSettings {
 	bool spu_captureMuted;
 	bool spu_advanced;
 
-	struct _ShowGpu {
-		_ShowGpu() : main(true), sub(true) {}
-		union {
-			struct { bool main,sub; };
-			bool screens[2];
-		};
-	} showGpu;
-
-	struct _Hud {
-		_Hud() 
-			: ShowInputDisplay(false)
-			, ShowGraphicalInputDisplay(false)
-			, FpsDisplay(false)
-			, FrameCounterDisplay(false)
-			, ShowLagFrameCounter(false)
-			, ShowMicrophone(false)
-			, ShowRTC(false)
-		{}
-		bool ShowInputDisplay, ShowGraphicalInputDisplay, FpsDisplay, FrameCounterDisplay, ShowLagFrameCounter, ShowMicrophone, ShowRTC;
-	} hud;
-
-	std::string run_advanscene_import;
-
 } CommonSettings;
 
 void NDS_RunAdvansceneAutoImport();
 
-extern std::string InputDisplayString;
 extern int LagFrameFlag;
 extern int lastLag, TotalLagFrames;
 

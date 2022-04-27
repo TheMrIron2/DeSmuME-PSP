@@ -122,9 +122,11 @@ public:
 	{
 		path = std::string(filename);
 
+
 		//extract the internal part of the logical rom name
-		std::vector<std::string> parts = tokenize_str(filename,"|");
-		SetRomName(parts[parts.size()-1].c_str());
+		//std::vector<std::string> parts = tokenize_str(filename,"|");
+		SetRomName(filename);
+
 		LoadModulePath();
 #if !defined(WIN32) && !defined(DESMUME_COCOA)
 		ReadPathSettings();
@@ -426,14 +428,16 @@ public:
 
 	void SetRomName(const char *filename)
 	{
-		std::string romPath = filename;
+		//std::string romPath = filename;
 
-		RomName = Path::GetFileNameFromPath(romPath);
+		RomName = "zoo.nds";//Path::GetFileNameFromPath(romPath);
+
+		//printf("Rom name: %s\n", RomName.c_str());
 		
         //HCF Invalid characters are removed previously
         //RomName = Path::ScrubInvalid(RomName);
 		
-        RomDirectory = Path::GetFileDirectoryPath(romPath);
+        RomDirectory = "ROMS/";//Path::GetFileDirectoryPath(romPath);
 	}
 
 	const char *GetRomName()

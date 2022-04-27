@@ -25,17 +25,19 @@
 #ifndef TYPES_HPP
 #define TYPES_HPP
 
+#define likely(x) __builtin_expect((x),1)
+#define unlikely(x) __builtin_expect((x),0)
+
 //HCF
 #define MAX_PATH 260
 //#define ENABLE_SSE
-//#define HAVE_JIT
+#define HAVE_JIT
 #define HOST_32
 
 //HCF TESTING (default: not commented)
 //#define MAPPED_JIT_FUNCS
 
 //HCF
-#define strcasecmp stricmp
 #define strncasecmp strnicmp 
 
 //HCF

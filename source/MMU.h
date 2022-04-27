@@ -771,8 +771,10 @@ FORCEINLINE u32 _MMU_read32(const int PROCNUM, const MMU_ACCESS_TYPE AT, const u
 	//special handling for DMA: read 0 from TCM
 	if(PROCNUM==ARMCPU_ARM9 && AT == MMU_AT_DMA)
 	{
-		if(addr<0x02000000) return 0; //itcm
-		if((addr&(~0x3FFF)) == MMU.DTCMRegion) return 0; //dtcm
+		if(addr<0x02000000)
+			return 0; //itcm	
+		if((addr&(~0x3FFF)) == MMU.DTCMRegion) 
+			return 0; //dtcm
 	}
 
 #ifdef HAVE_LUA
@@ -974,6 +976,15 @@ FORCEINLINE void _MMU_write32(const int PROCNUM, const MMU_ACCESS_TYPE AT, const
 	#define READ8(a,b)		_MMU_read08<PROCNUM>(b)
 	#define WRITE8(a,b,c)	_MMU_write08<PROCNUM>(b, c)
 #endif
+
+template<int PROCNUM>
+FORCEINLINE u8 DYNA_MMU_read08(u32 addr) { return _MMU_read08(PROCNUM, MMU_AT_CODE, addr); }
+
+template<int PROCNUM>
+FORCEINLINE u16 DYNA_MMU_read16(u32 addr) { return _MMU_read16(PROCNUM, MMU_AT_CODE, addr); }
+
+template<int PROCNUM>
+FORCEINLINE u32 DYNA_MMU_read32(u32 addr) { return _MMU_read32(PROCNUM, MMU_AT_CODE, addr); }
 
 template<int PROCNUM, MMU_ACCESS_TYPE AT>
 FORCEINLINE u8 _MMU_read08(u32 addr) { return _MMU_read08(PROCNUM, AT, addr); }

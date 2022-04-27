@@ -137,7 +137,7 @@ public:
 #endif
 
 
-#define INFOC(channel, ...) DBLogger::log(channel, __FILE__, __LINE__, __VA_ARGS__)
+#define INFOC(channel, ...) /*DBLogger::log(channel, __FILE__, __LINE__, __VA_ARGS__)*/
 #define INFO(...) INFOC(10, __VA_ARGS__)
 
 void IdeasLog(armcpu_t* cpu);

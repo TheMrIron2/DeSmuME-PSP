@@ -229,8 +229,7 @@ TEMPLATE static u32 WaitByLoop()
 
 TEMPLATE static u32 wait4IRQ()
 {
-   	cpu->waitIRQ = TRUE;
-	cpu->halt_IE_and_IF = TRUE;
+  cpu->freeze = CPU_FREEZE_IRQ_IE_IF;
 	return 1;
 }
 
@@ -277,8 +276,7 @@ TEMPLATE static u32 intrWaitARM()
 
 	//the condition wasn't satisfied. this means that we need to halt, wait for some enabled interrupt,
 	//and then ensure that we return to this opcode again to check the condition again
-	cpu->waitIRQ = TRUE;
-	cpu->halt_IE_and_IF = TRUE;
+	cpu->freeze = CPU_FREEZE_IRQ_IE_IF;
 
 	//(rewire PC to jump back to this opcode)
 	u32 instructAddr = cpu->instruct_adr;
@@ -316,7 +314,7 @@ TEMPLATE static u32 divide()
      
      if(dnum==0) return 0;
      
-	 s32 res = num / dnum;
+	   s32 res = num / dnum;
      cpu->R[0] = (u32)res;
      cpu->R[1] = (u32)(num % dnum);
      cpu->R[3] = (u32)abs(res);

@@ -32,81 +32,8 @@
 
 #include "GPU.h"
 
+#define NB_KEYS 12
 
-/*
-long stylusX = 0; 
-long stylusY = 0;
-*/    
-
-//HCF D3D Out
-/****
-TTF_Font *font;
-SDL_Surface *SDLscreen;
-****/
-
-
-//HCF Stretch:
-int iModoStretch      = STRETCH_MODE_NONE;
-int iModoStretchNuevo = STRETCH_MODE_NONE;
-int iCambiandoModoStretch = 0;
-
-//HCF 0-doble screen, 1 solo arriba, 2 solo abajo
-int iModoGrafico = 0;
-int iModoGraficoNuevo = 0;
-int iCambiandoModoGrafico = 0;
-int iCambiandoColorCursor = 0;
-int iCambiandoDisplayInfo = 0;
-int iShowFramesAndMemory = 0;  //Display info related to FPS and free memory
-int iMouseSpeed = MOUSE_DEFAULT_SPEED;
-int iAutoFrameskip;
-int nFrameskip;  //This will store the frameskip configured by the user
-    		     //On the other hand, "frameskip" stores the actual frameskip
-int iUsarDynarec = 1; //iGlobalSpeed = 1;
-int iLimitFramerate = 0;
-
-BOOL bBlitAll = true;
-int emula3D = 1;
-
-//HCF: Sound overclocking
-int iEnableSound;
-
-//HCF
-extern int iSoundQuality;
-extern int iSoundMode;
-extern int frameskip;
-extern int enable_sound;
-
-void Gu_draw();
-
-u16 keyboard_cfg[NB_KEYS];
-u16 joypad_cfg[NB_KEYS];
-u16 nbr_joy;
-mouse_status mouse;
-
-/* Keypad key names */
-const char *key_names[NB_KEYS] =
-{
-  "A", "B", "Select", "Start",
-  "Right", "Left", "Up", "Down",
-  "R", "L", "X", "Y",
-  "Debug", "Boost",
-  "Lid",
-};
-
-/* Joypad Key Codes -- 4-digit Hexadecimal number
- * 1st digit: device ID (0 is first joypad, 1 is second, etc.)
- * 2nd digit: 0 - Axis, 1 - Hat/POV/D-Pad, 2 - Button
- * 3rd & 4th digit: (depends on input type)
- *  Negative Axis - 2 * axis index
- *  Positive Axis - 2 * axis index + 1
- *  Hat Right - 4 * hat index
- *  Hat Left - 4 * hat index + 1
- *  Hat Up - 4 * hat index + 2
- *  Hat Down - 4 * hat index + 3
- *  Button - button index
- */
-
-  //HCF
 const u16 default_psp_cfg_h[NB_KEYS] =
   { PSP_CTRL_CIRCLE,    //A
 	PSP_CTRL_CROSS,     //B
@@ -121,25 +48,8 @@ const u16 default_psp_cfg_h[NB_KEYS] =
 	PSP_CTRL_TRIANGLE,  //X
 	PSP_CTRL_SQUARE     //Y
   };
-/* Default joypad configuration */
-const u16 default_joypad_cfg[NB_KEYS] =
-  { 0x0201,  // A
-    0x0200,  // B
-    0x0205,  // select
-    0x0208,  // start
-    0x0001, // Right
-    0x0000, // Left
-    0x0002, // Up
-    0x0003, // Down
-    0x0207,  // R
-    0x0206,  // L
-    0x0204,  // X
-    0x0203,  // Y
-    0xFFFF, // DEBUG
-    0xFFFF, // BOOST
-    0x0202, // Lid
-  };
 
+mouse_status mouse;
 
 #define MAX_CURSOR_COLORS 4
 int ashCursorColors[MAX_CURSOR_COLORS] = { 0x1C34, 0xD2E3, 0x1A54, 0xFFFF };
@@ -154,36 +64,8 @@ char achCursor[] =
 	1, 0, 0, 0, 1 
 };
 
-
-//HCF QUITO FONT
-void vdRellenaBotones(void)
-{
-	
-}
-
 const int bottom_index = 256*192;
 
-/*void DrawCursor(unsigned int x, unsigned int y)
-{
-	unsigned int fontAddr = 0;
-	//short shCurrentCursorColor = 0;
-
-	for (unsigned int yy = 0; yy < 4; yy++)
-	{
-		u8* framebuf = (u8*)&GPU_Screen[bottom_index + ((yy + y) * 1024)]; //GetFrameBuffer() + ((yy + y) * 1024);
-
-		for (unsigned int xx = 0; xx < 8; xx++)
-		{
-			if (achCursor[fontAddr])
-				*(framebuf + (x + xx)) = ashCursorColors[0];
-			else
-				*(framebuf + (x + xx)) = ashCursorColors[2];
-
-			fontAddr++;
-		}
-	}
-	//*(GetFrameBuffer() + ((3 + y) * 1024) + 3) = ashCursorColors[(shCurrentCursorColor + 1) % MAX_CURSOR_COLORS];
-}*/
 #define VRAM_START 0x4000000
 const int top_padding = 48 * 1024;
 
@@ -216,17 +98,10 @@ void DrawCursor(unsigned int x, unsigned int y)
 }
 
 /* Load default joystick and keyboard configurations */
-void load_default_config(const u16 kbCfg[])
-{
-  memcpy(keyboard_cfg, kbCfg, sizeof(keyboard_cfg));
-  memcpy(joypad_cfg, default_joypad_cfg, sizeof(joypad_cfg));
-}
+void load_default_config(const u16 kbCfg[]){}
 
 /* Set all buttons at once */
-static void set_joy_keys(const u16 joyCfg[])
-{
-  memcpy(joypad_cfg, joyCfg, sizeof(joypad_cfg));
-}
+static void set_joy_keys(const u16 joyCfg[]){}
 
 /* Initialize joysticks */
 BOOL init_joy( void) {
@@ -240,45 +115,16 @@ void uninit_joy( void)
 }
 
 /* Return keypad vector with given key set to 1 */
-u16 lookup_joy_key (u16 keyval) {
-  int i;
-  u16 Key = 0;
-
-  for(i = 0; i < NB_KEYS; i++)
-    if(keyval == joypad_cfg[i]) {
-      Key = KEYMASK_(i);
-      break;
-    }
-
-  return Key;
-}
+u16 lookup_joy_key (u16 keyval) { return 0; }
 
 /* Return keypad vector with given key set to 1 */
-u16 lookup_key (u16 keyval) {
-  int i;
-  u16 Key = 0;
-
-  for(i = 0; i < NB_KEYS; i++)
-    if(keyval == keyboard_cfg[i]) {
-      Key = KEYMASK_(i);
-      break;
-    }
-
-  return Key;
-}
+u16 lookup_key (u16 keyval) { return 0; }
 
 /* Get pressed joystick key */
-u16 get_joy_key(int index) {
- 
-  return 0;
-}
+u16 get_joy_key(int index) { return 0; }
 
 /* Get and set a new joystick key */
-u16 get_set_joy_key(int index) {
-  joypad_cfg[index] = get_joy_key(index);
-
-  return joypad_cfg[index];
-}
+u16 get_set_joy_key(int index) { return 0; }
 
 static signed long
 screen_to_touch_range( signed long scr, float size_ratio) {
@@ -392,42 +238,32 @@ bool menu_quit = false;
 
 void MenuAction(){
 	switch(curr_index){
-		case 0:
-			menu_quit = true;
-			pspDebugScreenClear();
-		break;
-
 		case 1:
-			menu_quit = true;
-			pspDebugScreenClear();
-			//KILL_ME();
 			ChangeRom(true); 
 		break;
 		
 		case 2:
-			menu_quit = true;
 			ResetRom(); 
 		break;
 
 		case 3:
-		savestate_slot(0);
-		menu_quit = true;
+			savestate_slot(0);
 		break;
 
 		case 4:
-		loadstate_slot(0);
-		menu_quit = true;
+			loadstate_slot(0);
 		break;
 
 		case 5:
-			menu_quit = true;
 			EMU_Conf();
 		break;
 
 		case 6:
 			sceKernelExitGame();
-		break;
+		return;
 	}
+
+	menu_quit = true;
 }
 
 void MenuOption(){
@@ -477,6 +313,8 @@ void Menu(){
 					MenuAction();
 				}
 				 if (pad.Buttons & PSP_CTRL_CIRCLE){
+					 pspDebugScreenClear();
+
 					 if (my_config.frameskip == 0)
 						 my_config.frameskip++; //Add one more Frameskip if it's set to 0. We need at least one to process input.
 					return;
@@ -490,6 +328,7 @@ void Menu(){
 	pspDebugScreenClear();
 }
 
+extern bool ARM7_SKIP_HACK;
 
 void
 //process_ctrls_event( SDL_Event& event,
@@ -521,6 +360,11 @@ process_ctrls_event(u16 &keypad)
 	  }
 
 	  set_mouse_coord(mouse.x, mouse.y);
+
+	  if (pad.Buttons & PSP_CTRL_RTRIGGER && pad.Buttons & PSP_CTRL_TRIANGLE) {
+	  	ARM7_SKIP_HACK = !ARM7_SKIP_HACK;
+		return;
+	  }
 
 	  if (pad.Buttons & PSP_CTRL_RTRIGGER && pad.Buttons & PSP_CTRL_CIRCLE) {
 	  	mouse.click = TRUE;
